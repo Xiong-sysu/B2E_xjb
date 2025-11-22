@@ -11,5 +11,5 @@ log/
 record/
 result/
 bios/
-# macOS system files
+# macOS
 .DS_Store
