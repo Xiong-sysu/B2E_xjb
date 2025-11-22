@@ -56,10 +56,12 @@ type BrokerCommitteeMod_b2e struct {
 	// 新增：B2E算法时间统计相关字段
 	b2eExecutionTimes []time.Duration
 	//totalB2ETransactions int
-	totalB2EIterations   int
-	epochB2ETransactions []int
-	txlen                []int
-	oldtxlen             []int
+	totalB2EIterations        int
+	epochB2ETransactions      []int
+	txlen                     []int
+	rest_BrokerRawMegPoolLen  []int
+	notHandleCtxByBroker      []int
+	len_alloctedBrokerRawMegs []int
 }
 
 func NewBrokerCommitteeMod_b2e(Ip_nodeTable map[uint64]map[uint64]string, Ss *signal.StopSignal, sl *supervisor_log.SupervisorLog, csvFilePath string, dataNum, batchNum int) *BrokerCommitteeMod_b2e {
@@ -117,10 +119,12 @@ func NewBrokerCommitteeMod_b2e(Ip_nodeTable map[uint64]map[uint64]string, Ss *si
 
 		b2eExecutionTimes: make([]time.Duration, 0),
 		//totalB2ETransactions: 0,
-		totalB2EIterations:   0,
-		epochB2ETransactions: make([]int, 0),
-		txlen:                make([]int, 0),
-		oldtxlen:             make([]int, 0),
+		totalB2EIterations:        0,
+		epochB2ETransactions:      make([]int, 0),
+		txlen:                     make([]int, 0),
+		rest_BrokerRawMegPoolLen:  make([]int, 0),
+		notHandleCtxByBroker:      make([]int, 0),
+		len_alloctedBrokerRawMegs: make([]int, 0),
 	}
 
 }
@@ -256,6 +260,7 @@ func (bcm *BrokerCommitteeMod_b2e) HandleBlockInfo(b *message.BlockInfoMsg) {
 
 	}
 	bcm.add_result()
+	// bcm.SaveB2ETimeStats()
 	bcm.brokerBalanceLock.Unlock()
 	bcm.brokerModuleLock.Unlock()
 	bcm.createConfirm(txs)
@@ -288,7 +293,7 @@ func (bcm *BrokerCommitteeMod_b2e) dealTxByBroker(txs []*core.Transaction) (itxs
 	itxs = make([]*core.Transaction, 0)
 	brokerRawMegs := make([]*message.BrokerRawMeg, 0)
 	bcm.txlen = append(bcm.txlen, len(txs))
-	bcm.oldtxlen = append(bcm.oldtxlen, len(bcm.restBrokerRawMegPool))
+	bcm.rest_BrokerRawMegPoolLen = append(bcm.rest_BrokerRawMegPoolLen, len(bcm.restBrokerRawMegPool))
 
 	brokerRecordMegs := make([]*message.BrokerRawMeg, 0)
 	//copy(brokerRawMegs, bcm.restBrokerRawMegPool)
@@ -297,13 +302,15 @@ func (bcm *BrokerCommitteeMod_b2e) dealTxByBroker(txs []*core.Transaction) (itxs
 	}
 	bcm.restBrokerRawMegPool = make([]*message.BrokerRawMeg, 0)
 
-	println("0brokerSize ", len(brokerRawMegs))
+	println("len_brokerRawMegs", len(brokerRawMegs))
+	count := 0
 	for _, tx := range txs {
 		rSid := bcm.fetchModifiedMap(tx.Recipient)
 		sSid := bcm.fetchModifiedMap(tx.Sender)
 		if rSid != sSid && !bcm.broker.IsBroker(tx.Recipient) && !bcm.broker.IsBroker(tx.Sender) {
 			brokerBalance := params.Init_broker_Balance
 			if brokerBalance.Cmp(tx.Value) < 0 {
+				count++
 				continue
 			}
 			brokerRawMeg := &message.BrokerRawMeg{
@@ -320,9 +327,9 @@ func (bcm *BrokerCommitteeMod_b2e) dealTxByBroker(txs []*core.Transaction) (itxs
 			itxs = append(itxs, tx)
 		}
 	}
-
+	bcm.notHandleCtxByBroker = append(bcm.notHandleCtxByBroker, count)
 	bcm.brokerBalanceLock.Lock()
-	println("1brokerSize ", len(brokerRecordMegs)) // record new injecting tx nums
+	println("len_brokerRecordMegs", len(brokerRecordMegs)) // record new injecting tx nums
 
 	// // 新增：记录交易数量
 	// transactionCount := len(brokerRecordMegs)
@@ -342,20 +349,23 @@ func (bcm *BrokerCommitteeMod_b2e) dealTxByBroker(txs []*core.Transaction) (itxs
 	bcm.totalB2EIterations++
 
 	fmt.Printf("New executionTime= %v\n", executionTime)
-	fmt.Println("AAAAAAAAdsdfsadgfdsgfdsg+++++++++++################@@@@@@@@@@@@@@@@@")
+	fmt.Println("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
 
 	//alloctedBrokerRawMegs, restBrokerRawMeg := Broker2Earn.B2E(brokerRawMegs, bcm.broker.BrokerBalance)
 	for _, item := range restBrokerRawMeg {
 		bcm.restBrokerRawMegPool = append(bcm.restBrokerRawMegPool, item)
 	}
-	println("2brokerSize ", len(alloctedBrokerRawMegs))
+	println("len_alloctedBrokerRawMegs", len(alloctedBrokerRawMegs))
 	bcm.brokerBalanceLock.Unlock()
+	bcm.len_alloctedBrokerRawMegs = append(bcm.len_alloctedBrokerRawMegs, len(alloctedBrokerRawMegs))
 	allocatedTxs := bcm.GenerateAllocatedTx(alloctedBrokerRawMegs)
 	if len(alloctedBrokerRawMegs) != 0 {
 		bcm.handleAllocatedTx(allocatedTxs)
 		bcm.lockToken(alloctedBrokerRawMegs)
 		bcm.handleBrokerRawMag(alloctedBrokerRawMegs)
 	}
+
+	bcm.SaveB2ETimeStats()
 	return itxs
 }
 
@@ -618,6 +628,13 @@ func (bcm *BrokerCommitteeMod_b2e) handleTx2ConfirmMag(mag2confirms []*message.M
 
 func (bcm *BrokerCommitteeMod_b2e) add_result() {
 
+	// 确保目录存在
+	dirpath := params.DataWrite_path + "brokerRsult/"
+	err := os.MkdirAll(dirpath, os.ModePerm)
+	if err != nil {
+		log.Panic(err)
+	}
+
 	for brokerAddress, shardMap := range bcm.broker.BrokerBalance {
 		a := ""
 		b := ""
@@ -633,6 +650,63 @@ func (bcm *BrokerCommitteeMod_b2e) add_result() {
 		bcm.Result_lockBalance[brokerAddress] = append(bcm.Result_lockBalance[brokerAddress], b)
 		bcm.Result_brokerBalance[brokerAddress] = append(bcm.Result_brokerBalance[brokerAddress], a)
 		bcm.Result_Profit[brokerAddress] = append(bcm.Result_Profit[brokerAddress], c)
+
+		// 实时写入到文件 - 只写入最新的一行数据
+		targetPath0 := dirpath + brokerAddress + "_lockBalance.csv"
+		targetPath1 := dirpath + brokerAddress + "_brokerBalance.csv"
+		targetPath2 := dirpath + brokerAddress + "_Profit.csv"
+
+		// 直接写入最新的行，而不是整个数组
+		bcm.writeLatestRow(targetPath0, []string{b})
+		bcm.writeLatestRow(targetPath1, []string{a})
+		bcm.writeLatestRow(targetPath2, []string{c})
+	}
+}
+
+// 新增方法：只写入最新的一行数据
+func (bcm *BrokerCommitteeMod_b2e) writeLatestRow(targetPath string, latestRows []string) {
+	var file *os.File
+	var err error
+
+	// 检查文件是否存在，不存在则创建并添加标题
+	if _, err := os.Stat(targetPath); os.IsNotExist(err) {
+		file, err = os.Create(targetPath)
+		if err != nil {
+			log.Panic(err)
+		}
+
+		// 写入标题行（假设标题格式与原始数据一致）
+		w := csv.NewWriter(file)
+		// 标题行示例，实际应根据您的数据结构调整
+		title := []string{"Shard0", "Shard1", "Shard2", "Shard3"} // 假设有4个分片
+		w.Write(title)
+		w.Flush()
+	} else {
+		// 文件存在则以追加模式打开
+		file, err = os.OpenFile(targetPath, os.O_APPEND|os.O_WRONLY, 0666)
+		if err != nil {
+			log.Panic(err)
+		}
+	}
+
+	defer file.Close()
+	w := csv.NewWriter(file)
+
+	for _, str := range latestRows {
+		str_arry := strings.Split(str, ",")
+		if len(str_arry) > 0 && str_arry[len(str_arry)-1] == "" {
+			err = w.Write(str_arry[0 : len(str_arry)-1])
+		} else {
+			err = w.Write(str_arry)
+		}
+		if err != nil {
+			log.Panic(err)
+		}
+		w.Flush()
+		// 立即将数据刷新到磁盘
+		if err := file.Sync(); err != nil {
+			log.Printf("Warning: Failed to sync file %s: %v", targetPath, err)
+		}
 	}
 }
 
@@ -652,6 +726,7 @@ func (bcm *BrokerCommitteeMod_b2e) SaveB2ETimeStats() {
 
 	// 创建保存目录
 	dirpath := params.DataWrite_path + "b2e_execution_time/"
+	// dirpath := params.DataWrite_path + "brokerRsult/"
 	fmt.Println("dirpath ", dirpath)
 
 	err := os.MkdirAll(dirpath, os.ModePerm)
@@ -660,31 +735,77 @@ func (bcm *BrokerCommitteeMod_b2e) SaveB2ETimeStats() {
 	}
 
 	// 生成带时间戳的文件名
-	timestamp := time.Now().Format("20060102_150405")
-	targetPath := dirpath + "b2e_execution_time_" + timestamp + ".csv"
+	// timestamp := time.Now().Format("20060102_150405")
+	targetPath := dirpath + "b2e_execution_time" + ".csv"
 
-	// 准备CSV数据
-	var resultStr []string
+	// 打开文件（创建或追加）
+	var file *os.File
+	if _, err := os.Stat(targetPath); os.IsNotExist(err) {
+		file, err = os.Create(targetPath)
+		if err != nil {
+			log.Panic(err)
+		}
+		w := csv.NewWriter(file)
+		w.Write([]string{"Iteration", "ExecutionTime(ms)", "epoch_tx_injected", "rest_BrokerRawMegPoolLen", "notHandleCtxByBroker", "len_alloctedBrokerRawMegs"})
+		w.Flush()
+	} else {
+		file, err = os.OpenFile(targetPath, os.O_APPEND|os.O_WRONLY, 0666)
+		if err != nil {
+			log.Panic(err)
+		}
+	}
+	defer file.Close()
 
-	fmt.Println("totalTime ", totalTime.Milliseconds())
-	fmt.Println("xxxx")
-	fmt.Println("xxxx##################@@@@@@@@@@@@@@@@@@@")
-	// 添加总统计信息
-	totalInfo := fmt.Sprintf("总迭代次数,%d,总执行时间,%d", bcm.totalB2EIterations, totalTime.Milliseconds())
-	resultStr = append(resultStr, totalInfo)
+	w := csv.NewWriter(file)
+	// 写入最新的执行时间数据
+	latestTime := bcm.b2eExecutionTimes[len(bcm.b2eExecutionTimes)-1]
+	iteration := bcm.totalB2EIterations
 
-	// 添加表头
-	header := "迭代序号,执行时间(微秒),epoch注入交易数, oldtxlen"
-	resultStr = append(resultStr, header)
-
-	// 添加每次迭代的详细信息
-	for i, duration := range bcm.b2eExecutionTimes {
-		row := fmt.Sprintf("%d,%d, %d, %d", i+1, duration.Microseconds(), bcm.txlen[i], bcm.oldtxlen[i])
-		resultStr = append(resultStr, row)
+	row := []string{
+		strconv.Itoa(iteration),
+		strconv.FormatFloat(float64(latestTime.Microseconds())/1000.0, 'f', 6, 64),
+		strconv.Itoa(bcm.txlen[iteration-1]),
+		strconv.Itoa(bcm.rest_BrokerRawMegPoolLen[iteration-1]),
+		strconv.Itoa(bcm.notHandleCtxByBroker[iteration-1]),
+		strconv.Itoa(bcm.len_alloctedBrokerRawMegs[iteration-1]),
 	}
 
+	w.Write(row)
+	w.Flush()
+	// 立即刷新到磁盘
+	file.Sync()
+
+	// // 计算并保存汇总数据
+	// targetSummaryPath := dirpath + "b2e_summary.csv"
+	// // 计算统计数据（这里可以添加您需要的汇总计算）
+	// var totalTime time.Duration
+	// for _, duration := range bcm.b2eExecutionTimes {
+	//     totalTime += duration
+	// }
+
+	/*
+		// 准备CSV数据
+		var resultStr []string
+
+		fmt.Println("totalTime ", totalTime.Milliseconds())
+		fmt.Println("########################################################################")
+		// 添加总统计信息
+		totalInfo := fmt.Sprintf("总迭代次数,%d,总执行时间,%d", bcm.totalB2EIterations, totalTime.Milliseconds())
+		resultStr = append(resultStr, totalInfo)
+
+		// 添加表头
+		header := "迭代序号,执行时间(微秒),epoch注入交易数, oldtxlen"
+		resultStr = append(resultStr, header)
+
+		// 添加每次迭代的详细信息
+		for i, duration := range bcm.b2eExecutionTimes {
+			row := fmt.Sprintf("%d,%d, %d, %d", i+1, duration.Microseconds(), bcm.txlen[i], bcm.oldtxlen[i])
+			resultStr = append(resultStr, row)
+		}
+	*/
+
 	// 使用现有的Wirte_result方法写入CSV
-	bcm.Wirte_result(targetPath, resultStr)
+	// bcm.Wirte_result(targetPath, resultStr)
 }
 
 func (bcm *BrokerCommitteeMod_b2e) Result_save() {
@@ -703,7 +824,7 @@ func (bcm *BrokerCommitteeMod_b2e) Result_save() {
 		bcm.Wirte_result(targetPath1, bcm.Result_brokerBalance[brokerAddress])
 		bcm.Wirte_result(targetPath2, bcm.Result_Profit[brokerAddress])
 	}
-	bcm.SaveB2ETimeStats()
+	// bcm.SaveB2ETimeStats()
 }
 func (bcm *BrokerCommitteeMod_b2e) Wirte_result(targetPath string, resultStr []string) {
 

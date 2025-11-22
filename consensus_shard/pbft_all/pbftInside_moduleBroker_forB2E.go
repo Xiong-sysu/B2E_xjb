@@ -127,7 +127,7 @@ func (rbhm *RawBrokerPbftExtraHandleMod_forB2E) HandleinCommit(cmsg *message.Com
 		go networks.TcpDial(msg_send, rbhm.pbftNode.ip_nodeTable[params.DeciderShard][0])
 		rbhm.pbftNode.pl.Plog.Printf("S%dN%d : sended excuted txs\n", rbhm.pbftNode.ShardID, rbhm.pbftNode.NodeID)
 		rbhm.pbftNode.CurChain.Txpool.GetLocked()
-		rbhm.pbftNode.writeCSVline([]string{strconv.Itoa(len(rbhm.pbftNode.CurChain.Txpool.TxQueue)), strconv.Itoa(len(txExcuted)),
+		rbhm.pbftNode.writeCSVline([]string{strconv.Itoa(int(block.Header.Number)), strconv.Itoa(len(rbhm.pbftNode.CurChain.Txpool.TxQueue)), strconv.Itoa(len(txExcuted)),
 			strconv.Itoa(len(bim.Broker1Txs)), strconv.Itoa(len(bim.Broker2Txs)), strconv.Itoa(len(bim.AllocatedTxs))})
 		rbhm.pbftNode.CurChain.Txpool.GetUnlocked()
 	}
