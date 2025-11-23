@@ -69,11 +69,18 @@ func (rbhm *RawBrokerPbftExtraHandleMod_forB2E) HandleinCommit(cmsg *message.Com
 		broker1Txs := make([]*core.Transaction, 0)
 		broker2Txs := make([]*core.Transaction, 0)
 		allocatedTxs := make([]*core.Transaction, 0)
+		BATs := make([]*core.Transaction, 0)
+		relay2Txs_num := 0
+
+		// relay tx for B2E
+		rbhm.pbftNode.CurChain.Txpool.RelayPool = make(map[uint64][]*core.Transaction)
+		relay1Txs := make([]*core.Transaction, 0)
 
 		// generate block infos
 		for _, tx := range block.Body {
 			if tx.IsAllocatedRecipent || tx.IsAllocatedSender {
 				allocatedTxs = append(allocatedTxs, tx)
+				BATs = append(BATs, tx)
 				continue
 			}
 			isInnerShardTx := tx.RawTxHash == nil
@@ -86,29 +93,76 @@ func (rbhm *RawBrokerPbftExtraHandleMod_forB2E) HandleinCommit(cmsg *message.Com
 			} else {
 				txExcuted = append(txExcuted, tx)
 			}
+
+			// add for relay
+			rsid := rbhm.pbftNode.CurChain.Get_PartitionMap(tx.Recipient)
+			if rsid != rbhm.pbftNode.ShardID {
+				ntx := tx
+				ntx.Relayed = true
+				rbhm.pbftNode.CurChain.Txpool.AddRelayTx(ntx, rsid)
+				relay1Txs = append(relay1Txs, tx)
+			}
+
+			ssid := rbhm.pbftNode.CurChain.Get_PartitionMap(tx.Sender)
+			if rsid == rbhm.pbftNode.ShardID && ssid != rbhm.pbftNode.ShardID && tx.Relayed {
+				relay2Txs_num++
+			}
 		}
-		// send seqID
+
+		// send relay txs
 		for sid := uint64(0); sid < rbhm.pbftNode.pbftChainConfig.ShardNums; sid++ {
 			if sid == rbhm.pbftNode.ShardID {
 				continue
 			}
-			sii := message.SeqIDinfo{
+			relay := message.Relay{
+				Txs:           rbhm.pbftNode.CurChain.Txpool.RelayPool[sid],
 				SenderShardID: rbhm.pbftNode.ShardID,
 				SenderSeq:     rbhm.pbftNode.sequenceID,
 			}
-			sByte, err := json.Marshal(sii)
+			rByte, err := json.Marshal(relay)
 			if err != nil {
 				log.Panic()
 			}
-			msg_send := message.MergeMessage(message.CSeqIDinfo, sByte)
+			msg_send := message.MergeMessage(message.CRelay, rByte)
 			go networks.TcpDial(msg_send, rbhm.pbftNode.ip_nodeTable[sid][0])
-			rbhm.pbftNode.pl.Plog.Printf("S%dN%d : sended sequence ids to %d\n", rbhm.pbftNode.ShardID, rbhm.pbftNode.NodeID, sid)
+			rbhm.pbftNode.pl.Plog.Printf("S%dN%d : sended relay txs to %d\n", rbhm.pbftNode.ShardID, rbhm.pbftNode.NodeID, sid)
 		}
+		rbhm.pbftNode.CurChain.Txpool.ClearRelayPool()
+
+		batByte, _ := json.Marshal(BATs)
+		Bat_byte_Size := len(batByte)
+
+		block_byte, _ := json.Marshal(block)
+		Block_byte_Size := len(block_byte)
+
+		Bat_byte_ratio := float64(Bat_byte_Size) / float64(Block_byte_Size) // B
+
+		/// 原B2E，注释掉了发送seqID的代码
+		// // send seqID
+		// for sid := uint64(0); sid < rbhm.pbftNode.pbftChainConfig.ShardNums; sid++ {
+		// 	if sid == rbhm.pbftNode.ShardID {
+		// 		continue
+		// 	}
+		// 	sii := message.SeqIDinfo{
+		// 		SenderShardID: rbhm.pbftNode.ShardID,
+		// 		SenderSeq:     rbhm.pbftNode.sequenceID,
+		// 	}
+		// 	sByte, err := json.Marshal(sii)
+		// 	if err != nil {
+		// 		log.Panic()
+		// 	}
+		// 	msg_send := message.MergeMessage(message.CSeqIDinfo, sByte)
+		// 	go networks.TcpDial(msg_send, rbhm.pbftNode.ip_nodeTable[sid][0])
+		// 	rbhm.pbftNode.pl.Plog.Printf("S%dN%d : sended sequence ids to %d\n", rbhm.pbftNode.ShardID, rbhm.pbftNode.NodeID, sid)
+		// }
+
 		// send txs excuted in this block to the listener
 		// add more message to measure more metrics
 		bim := message.BlockInfoMsg{
 			BlockBodyLength: len(block.Body),
 			ExcutedTxs:      txExcuted,
+			Relay1Txs:       relay1Txs,
+			Relay1TxNum:     uint64(len(relay1Txs)),
 			Broker1TxNum:    uint64(len(broker1Txs)),
 			Broker1Txs:      broker1Txs,
 			Broker2TxNum:    uint64(len(broker2Txs)),
@@ -118,6 +172,10 @@ func (rbhm *RawBrokerPbftExtraHandleMod_forB2E) HandleinCommit(cmsg *message.Com
 			SenderShardID:   rbhm.pbftNode.ShardID,
 			ProposeTime:     r.ReqTime,
 			CommitTime:      time.Now(),
+			Bat_byte_Size:   Bat_byte_Size,
+			Block_byte_Size: Block_byte_Size,
+			Bat_byte_ratio:  Bat_byte_ratio,
+			Relay2TxNum:     uint64(relay2Txs_num),
 		}
 		bByte, err := json.Marshal(bim)
 		if err != nil {
@@ -127,8 +185,8 @@ func (rbhm *RawBrokerPbftExtraHandleMod_forB2E) HandleinCommit(cmsg *message.Com
 		go networks.TcpDial(msg_send, rbhm.pbftNode.ip_nodeTable[params.DeciderShard][0])
 		rbhm.pbftNode.pl.Plog.Printf("S%dN%d : sended excuted txs\n", rbhm.pbftNode.ShardID, rbhm.pbftNode.NodeID)
 		rbhm.pbftNode.CurChain.Txpool.GetLocked()
-		rbhm.pbftNode.writeCSVline([]string{strconv.Itoa(int(block.Header.Number)), strconv.Itoa(len(rbhm.pbftNode.CurChain.Txpool.TxQueue)), strconv.Itoa(len(txExcuted)),
-			strconv.Itoa(len(bim.Broker1Txs)), strconv.Itoa(len(bim.Broker2Txs)), strconv.Itoa(len(bim.AllocatedTxs))})
+		rbhm.pbftNode.writeCSVline([]string{strconv.Itoa(int(block.Header.Number)), strconv.Itoa(len(rbhm.pbftNode.CurChain.Txpool.TxQueue)), strconv.Itoa(bim.BlockBodyLength), strconv.Itoa(len(txExcuted)),
+			strconv.Itoa(len(bim.Broker1Txs)), strconv.Itoa(len(bim.Broker2Txs)), strconv.Itoa(len(bim.AllocatedTxs)), strconv.Itoa(bim.Bat_byte_Size), strconv.Itoa(bim.Block_byte_Size), strconv.FormatFloat(bim.Bat_byte_ratio, 'f', 6, 64), strconv.Itoa(int(bim.Relay1TxNum)), strconv.Itoa(int(bim.Relay2TxNum))})
 		rbhm.pbftNode.CurChain.Txpool.GetUnlocked()
 	}
 	return true

@@ -21,9 +21,25 @@ func (rrom *RawBrokerOutsideModule_forB2E) HandleMessageOutsidePBFT(msgType mess
 		rrom.handleInjectTx(content)
 	case message.CInjectHead:
 		rrom.handleInjectTxHead(content)
+	case message.CRelay:
+		rrom.handleRelay(content)
 	default:
 	}
 	return true
+}
+
+func (rrom *RawBrokerOutsideModule_forB2E) handleRelay(content []byte) {
+	relay := new(message.Relay)
+	err := json.Unmarshal(content, relay)
+	if err != nil {
+		log.Panic(err)
+	}
+	rrom.pbftNode.pl.Plog.Printf("S%dN%d : has received relay txs from shard %d, the senderSeq is %d\n", rrom.pbftNode.ShardID, rrom.pbftNode.NodeID, relay.SenderShardID, relay.SenderSeq)
+	rrom.pbftNode.CurChain.Txpool.AddTxs2Pool(relay.Txs)
+	rrom.pbftNode.seqMapLock.Lock()
+	rrom.pbftNode.seqIDMap[relay.SenderShardID] = relay.SenderSeq
+	rrom.pbftNode.seqMapLock.Unlock()
+	rrom.pbftNode.pl.Plog.Printf("S%dN%d : has handled relay txs msg\n", rrom.pbftNode.ShardID, rrom.pbftNode.NodeID)
 }
 
 // receive SeqIDinfo
@@ -57,5 +73,12 @@ func (rrom *RawBrokerOutsideModule_forB2E) handleInjectTxHead(content []byte) {
 		log.Panic(err)
 	}
 	rrom.pbftNode.CurChain.Txpool.AddTxs2Pool_Head(it.Txs)
+	// if len(it.Txs) <= params.MaxBlockSize_global {
+	// 	BAT_byte, _ := json.Marshal(it.Txs)
+	// 	BAT_size := len(BAT_byte)
+	// }
+	// else{
+
+	// }
 	rrom.pbftNode.pl.Plog.Printf("S%dN%d : has handled injected txs msg, txs: %d \n", rrom.pbftNode.ShardID, rrom.pbftNode.NodeID, len(it.Txs))
 }

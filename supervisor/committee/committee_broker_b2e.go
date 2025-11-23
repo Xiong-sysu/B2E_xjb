@@ -62,6 +62,7 @@ type BrokerCommitteeMod_b2e struct {
 	rest_BrokerRawMegPoolLen  []int
 	notHandleCtxByBroker      []int
 	len_alloctedBrokerRawMegs []int
+	BAT_size                  []float64
 }
 
 func NewBrokerCommitteeMod_b2e(Ip_nodeTable map[uint64]map[uint64]string, Ss *signal.StopSignal, sl *supervisor_log.SupervisorLog, csvFilePath string, dataNum, batchNum int) *BrokerCommitteeMod_b2e {
@@ -125,6 +126,7 @@ func NewBrokerCommitteeMod_b2e(Ip_nodeTable map[uint64]map[uint64]string, Ss *si
 		rest_BrokerRawMegPoolLen:  make([]int, 0),
 		notHandleCtxByBroker:      make([]int, 0),
 		len_alloctedBrokerRawMegs: make([]int, 0),
+		BAT_size:                  make([]float64, 0),
 	}
 
 }
@@ -156,7 +158,7 @@ func (bcm *BrokerCommitteeMod_b2e) txSending(txlist []*core.Transaction) {
 			}
 			sendToShard = make(map[uint64][]*core.Transaction)
 			time.Sleep(time.Second)
-		}
+		} //发送到源分片
 		if idx == len(txlist) {
 			break
 		}
@@ -295,6 +297,7 @@ func (bcm *BrokerCommitteeMod_b2e) dealTxByBroker(txs []*core.Transaction) (itxs
 	bcm.txlen = append(bcm.txlen, len(txs))
 	bcm.rest_BrokerRawMegPoolLen = append(bcm.rest_BrokerRawMegPoolLen, len(bcm.restBrokerRawMegPool))
 
+	relay_txs := make([]*core.Transaction, 0)
 	brokerRecordMegs := make([]*message.BrokerRawMeg, 0)
 	//copy(brokerRawMegs, bcm.restBrokerRawMegPool)
 	for _, item := range bcm.restBrokerRawMegPool {
@@ -311,6 +314,8 @@ func (bcm *BrokerCommitteeMod_b2e) dealTxByBroker(txs []*core.Transaction) (itxs
 			brokerBalance := params.Init_broker_Balance
 			if brokerBalance.Cmp(tx.Value) < 0 {
 				count++
+				// relay tx
+				relay_txs = append(relay_txs, tx)
 				continue
 			}
 			brokerRawMeg := &message.BrokerRawMeg{
@@ -331,6 +336,7 @@ func (bcm *BrokerCommitteeMod_b2e) dealTxByBroker(txs []*core.Transaction) (itxs
 	bcm.brokerBalanceLock.Lock()
 	println("len_brokerRecordMegs", len(brokerRecordMegs)) // record new injecting tx nums
 
+	bcm.txSending(relay_txs)
 	// // 新增：记录交易数量
 	// transactionCount := len(brokerRecordMegs)
 	// bcm.totalB2ETransactions += transactionCount
@@ -359,6 +365,14 @@ func (bcm *BrokerCommitteeMod_b2e) dealTxByBroker(txs []*core.Transaction) (itxs
 	bcm.brokerBalanceLock.Unlock()
 	bcm.len_alloctedBrokerRawMegs = append(bcm.len_alloctedBrokerRawMegs, len(alloctedBrokerRawMegs))
 	allocatedTxs := bcm.GenerateAllocatedTx(alloctedBrokerRawMegs)
+	aByte, err := json.Marshal(allocatedTxs)
+	if err != nil {
+		log.Panic(err)
+	}
+	// 新增：记录BAT大小
+	batSize := float64(len(aByte)) / 1024.0      // 转换为KB
+	bcm.BAT_size = append(bcm.BAT_size, batSize) // 计算得到了 BAT 大小（KB）
+
 	if len(alloctedBrokerRawMegs) != 0 {
 		bcm.handleAllocatedTx(allocatedTxs)
 		bcm.lockToken(alloctedBrokerRawMegs)

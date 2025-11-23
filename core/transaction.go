@@ -34,6 +34,8 @@ type Transaction struct {
 	OriginalSender      utils.Address
 	FinalRecipient      utils.Address
 	RawTxHash           []byte
+
+	IsRelay bool
 }
 
 func (tx *Transaction) PrintTx() string {

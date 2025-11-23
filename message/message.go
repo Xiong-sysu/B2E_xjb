@@ -105,6 +105,11 @@ type BlockInfoMsg struct {
 	Broker2TxNum uint64              // the number of broker 2
 	Broker2Txs   []*core.Transaction // cross transactions at second time by broker
 	AllocatedTxs []*core.Transaction // allocated the Txs for  broker
+
+	Bat_byte_Size   int
+	Block_byte_Size int
+	Bat_byte_ratio  float64
+	Relay2TxNum     uint64
 }
 
 type SeqIDinfo struct {

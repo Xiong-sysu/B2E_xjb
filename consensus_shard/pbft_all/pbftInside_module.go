@@ -76,7 +76,7 @@ func (rphm *RawRelayPbftExtraHandleMod) HandleinCommit(cmsg *message.Commit) boo
 				rphm.pbftNode.CurChain.Txpool.AddRelayTx(ntx, rsid)
 				relay1Txs = append(relay1Txs, tx)
 			} else {
-				txExcuted = append(txExcuted, tx) // no validtaion?20251121xjb,ljn
+				txExcuted = append(txExcuted, tx)
 			}
 		}
 		// send relay txs

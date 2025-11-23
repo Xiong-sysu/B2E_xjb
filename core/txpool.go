@@ -60,6 +60,7 @@ func (txpool *TxPool) PackTxs(max_txs uint64) []*Transaction {
 		txNum = uint64(len(txpool.TxQueue))
 	}
 	txs_Packed := txpool.TxQueue[:txNum]
+
 	txpool.TxQueue = txpool.TxQueue[txNum:]
 	return txs_Packed
 }

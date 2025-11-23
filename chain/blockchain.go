@@ -201,6 +201,15 @@ func (bc *BlockChain) GetUpdateStatusTrie(txs []*core.Transaction) common.Hash {
 func (bc *BlockChain) GenerateBlock() *core.Block {
 	// pack the transactions from the txpool
 	txs := bc.Txpool.PackTxs(bc.ChainConfig.BlockSize)
+	// BATs := make([]*core.Transaction, 0)
+	// for _, tx := range txs {
+	// 	if tx.IsAllocatedRecipent || tx.IsAllocatedSender {
+	// 		BATs = append(BATs, tx)
+	// 	}
+	// }
+	// batByte, _ := json.Marshal(BATs)
+	// Bat_byte_Size := len(batByte)
+
 	bh := &core.BlockHeader{
 		ParentBlockHash: bc.CurrentBlock.Hash,
 		Number:          bc.CurrentBlock.Header.Number + 1,
@@ -214,6 +223,9 @@ func (bc *BlockChain) GenerateBlock() *core.Block {
 	b := core.NewBlock(bh, txs)
 	b.Header.Miner = 0
 	b.Hash = b.Header.Hash()
+	// block_byte, _ := json.Marshal(b)
+	// block_byte_Size := len(block_byte)
+
 	return b
 }
 
