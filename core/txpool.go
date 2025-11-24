@@ -48,6 +48,11 @@ func (txpool *TxPool) AddTxs2Pool(txs []*Transaction) {
 func (txpool *TxPool) AddTxs2Pool_Head(tx []*Transaction) {
 	txpool.lock.Lock()
 	defer txpool.lock.Unlock()
+	for _, tx := range tx { // set time ljn
+		if tx.Time.IsZero() {
+			tx.Time = time.Now()
+		}
+	}
 	txpool.TxQueue = append(tx, txpool.TxQueue...)
 }
 

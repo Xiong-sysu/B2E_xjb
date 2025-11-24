@@ -224,9 +224,9 @@ func (bcm *BrokerCommitteeMod_b2e) MsgSendingControl() {
 
 				time.Sleep(time.Second)
 				oldNum = len(bcm.restBrokerRawMegPool)
-				// if recoderNum >= 10 {
-				// 	break
-				// }
+				if recoderNum >= 100 {
+					break
+				}
 			}
 			break
 		}
