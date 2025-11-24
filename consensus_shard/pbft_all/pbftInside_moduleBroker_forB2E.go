@@ -69,7 +69,7 @@ func (rbhm *RawBrokerPbftExtraHandleMod_forB2E) HandleinCommit(cmsg *message.Com
 		broker1Txs := make([]*core.Transaction, 0)
 		broker2Txs := make([]*core.Transaction, 0)
 		allocatedTxs := make([]*core.Transaction, 0)
-		BATs := make([]*core.Transaction, 0)
+		relayer_1_2_txs := make([]*core.Transaction, 0)
 		relay2Txs_num := 0
 
 		// relay tx for B2E
@@ -82,25 +82,26 @@ func (rbhm *RawBrokerPbftExtraHandleMod_forB2E) HandleinCommit(cmsg *message.Com
 			ssid := rbhm.pbftNode.CurChain.Get_PartitionMap(tx.Sender)
 			if tx.IsAllocatedRecipent || tx.IsAllocatedSender {
 				allocatedTxs = append(allocatedTxs, tx)
-				BATs = append(BATs, tx)
 				continue
 			}
-			isInnerShardTx := tx.RawTxHash == nil
-			isBroker1Tx := !isInnerShardTx && tx.Sender == tx.OriginalSender
-			isBroker2Tx := !isInnerShardTx && tx.Recipient == tx.FinalRecipient
+			isInnerShardTx := tx.RawTxHash == nil // 这里也有可能是需要relay的tx，只有broker tx才会有RawTxHash
+			isBroker1Tx := !isInnerShardTx && tx.Sender == tx.OriginalSender && !tx.IsRelay
+			isBroker2Tx := !isInnerShardTx && tx.Recipient == tx.FinalRecipient && !tx.IsRelay
 			if isBroker2Tx {
 				broker2Txs = append(broker2Txs, tx)
 			} else if isBroker1Tx {
 				broker1Txs = append(broker1Txs, tx)
 			} else {
-				txExcuted = append(txExcuted, tx)
+				txExcuted = append(txExcuted, tx) // txExcuted 包含 itx 和 relay1+relayer2 tx（ctx）， 不包含 broker tx 和 allocated tx
 				if rsid == ssid {
 					innertxs = append(innertxs, tx)
+				} else {
+					relayer_1_2_txs = append(relayer_1_2_txs, tx)
 				}
 			}
 
 			// if !tx.IsAllocatedRecipent && !tx.IsAllocatedSender && !isBroker1Tx && !isBroker2Tx {
-			// add for relay
+			// add for relay //原本的判断条件会多很多笔 relay 交易，很奇怪
 			if tx.IsRelay {
 				if rsid != rbhm.pbftNode.ShardID {
 					ntx := tx
@@ -136,7 +137,7 @@ func (rbhm *RawBrokerPbftExtraHandleMod_forB2E) HandleinCommit(cmsg *message.Com
 		}
 		rbhm.pbftNode.CurChain.Txpool.ClearRelayPool()
 
-		batByte, _ := json.Marshal(BATs)
+		batByte, _ := json.Marshal(allocatedTxs)
 		Bat_byte_Size := len(batByte)
 
 		block_byte, _ := json.Marshal(block)
@@ -193,7 +194,7 @@ func (rbhm *RawBrokerPbftExtraHandleMod_forB2E) HandleinCommit(cmsg *message.Com
 		rbhm.pbftNode.pl.Plog.Printf("S%dN%d : sended excuted txs\n", rbhm.pbftNode.ShardID, rbhm.pbftNode.NodeID)
 		rbhm.pbftNode.CurChain.Txpool.GetLocked()
 		rbhm.pbftNode.writeCSVline([]string{strconv.Itoa(int(block.Header.Number)), strconv.Itoa(len(rbhm.pbftNode.CurChain.Txpool.TxQueue)), strconv.Itoa(bim.BlockBodyLength), strconv.Itoa(len(txExcuted)),
-			strconv.Itoa(len(bim.Broker1Txs)), strconv.Itoa(len(bim.Broker2Txs)), strconv.Itoa(len(bim.AllocatedTxs)), strconv.Itoa(bim.Bat_byte_Size), strconv.Itoa(bim.Block_byte_Size), strconv.FormatFloat(bim.Bat_byte_ratio, 'f', 6, 64), strconv.Itoa(int(bim.Relay1TxNum)), strconv.Itoa(int(bim.Relay2TxNum)), strconv.Itoa(len(innertxs))})
+			strconv.Itoa(len(bim.Broker1Txs)), strconv.Itoa(len(bim.Broker2Txs)), strconv.Itoa(len(bim.AllocatedTxs)), strconv.Itoa(bim.Bat_byte_Size), strconv.Itoa(bim.Block_byte_Size), strconv.FormatFloat(bim.Bat_byte_ratio, 'f', 6, 64), strconv.Itoa(int(bim.Relay1TxNum)), strconv.Itoa(int(bim.Relay2TxNum)), strconv.Itoa(len(innertxs)), strconv.Itoa(len(relayer_1_2_txs))})
 		rbhm.pbftNode.CurChain.Txpool.GetUnlocked()
 	}
 	return true
