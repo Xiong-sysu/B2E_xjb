@@ -3,7 +3,9 @@
 
 set -ex
 
-PROJECT_DIR="/Users/xjb/Desktop/Huang Lab/BrokerChain/BlockEmulator/b2e-change/block-emulator-b2e"
+# 自动获取当前脚本所在目录，而不是写死路径
+PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
 
 rm -rf ./log
 rm -rf ./record

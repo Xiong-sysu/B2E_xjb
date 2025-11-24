@@ -2,7 +2,8 @@
 
 set -ex
 
-PROJECT_DIR="/Users/xjb/Desktop/Huang Lab/BrokerChain/BlockEmulator/b2e-change/block-emulator-b2e"
+# 自动获取当前脚本所在目录，而不是写死路径
+PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 rm -rf ./log
 rm -rf ./record
@@ -13,9 +14,14 @@ go build -o b2e main.go
 # }
 
 run_cmd() {
-    osascript -e "tell application \"Terminal\" \
-        to do script \"cd '$PROJECT_DIR' && $1\""
+    osascript -e "
+        tell application \"Terminal\"
+            do script \"cd '$PROJECT_DIR' && $1\"
+            activate
+        end tell
+    "
 }
+
 
 run_cmd "./b2e -n 1 -N 4 -s 0 -S 6 -m 4 &"
 

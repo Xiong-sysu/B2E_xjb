@@ -1,84 +1,541 @@
-Supervisor: 2025/11/24 12:06:35 committee_broker_b2e.go:238: received from shard 0 in epoch 0.
-New executionTime= 34.583833ms
+Supervisor: 2025/11/24 21:45:14 committee_broker_b2e.go:238: received from shard 0 in epoch 0.
+New executionTime= 43.4345ms
 @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-Supervisor: 2025/11/24 12:06:38 committee_broker_b2e.go:238: received from shard 1 in epoch 0.
-Supervisor: 2025/11/24 12:06:40 committee_broker_b2e.go:238: received from shard 2 in epoch 0.
-broker receive ctx  1213
-Supervisor: 2025/11/24 12:06:49 committee_broker_b2e.go:238: received from shard 3 in epoch 0.
-Supervisor: 2025/11/24 12:06:51 committee_broker_b2e.go:238: received from shard 4 in epoch 0.
-Supervisor: 2025/11/24 12:06:53 committee_broker_b2e.go:238: received from shard 4 in epoch 0.
-Supervisor: 2025/11/24 12:06:56 committee_broker_b2e.go:238: received from shard 5 in epoch 0.
-Supervisor: 2025/11/24 12:06:58 committee_broker_b2e.go:238: received from shard 0 in epoch 0.
-Supervisor: 2025/11/24 12:06:59 committee_broker_b2e.go:238: received from shard 1 in epoch 0.
-Supervisor: 2025/11/24 12:07:01 committee_broker_b2e.go:238: received from shard 2 in epoch 0.
-Supervisor: 2025/11/24 12:07:02 committee_broker_b2e.go:238: received from shard 3 in epoch 0.
-Supervisor: 2025/11/24 12:07:03 committee_broker_b2e.go:238: received from shard 4 in epoch 0.
-Supervisor: 2025/11/24 12:07:05 committee_broker_b2e.go:238: received from shard 5 in epoch 0.
-Supervisor: 2025/11/24 12:07:05 committee_broker_b2e.go:238: received from shard 0 in epoch 0.
-Supervisor: 2025/11/24 12:07:06 committee_broker_b2e.go:238: received from shard 1 in epoch 0.
-Supervisor: 2025/11/24 12:07:08 committee_broker_b2e.go:238: received from shard 2 in epoch 0.
-Supervisor: 2025/11/24 12:07:09 committee_broker_b2e.go:238: received from shard 3 in epoch 0.
-Supervisor: 2025/11/24 12:07:11 committee_broker_b2e.go:238: received from shard 4 in epoch 0.
-Supervisor: 2025/11/24 12:07:11 committee_broker_b2e.go:238: received from shard 5 in epoch 0.
-Supervisor: 2025/11/24 12:07:11 committee_broker_b2e.go:238: received from shard 0 in epoch 0.
-Supervisor: 2025/11/24 12:07:11 committee_broker_b2e.go:238: received from shard 1 in epoch 0.
-Supervisor: 2025/11/24 12:07:11 committee_broker_b2e.go:238: received from shard 2 in epoch 0.
-Supervisor: 2025/11/24 12:07:11 committee_broker_b2e.go:238: received from shard 3 in epoch 0.
-Supervisor: 2025/11/24 12:07:11 committee_broker_b2e.go:238: received from shard 4 in epoch 0.
-Supervisor: 2025/11/24 12:07:11 committee_broker_b2e.go:238: received from shard 4 in epoch 0.
-Supervisor: 2025/11/24 12:07:11 committee_broker_b2e.go:238: received from shard 4 in epoch 0.
-Supervisor: 2025/11/24 12:07:11 committee_broker_b2e.go:238: received from shard 4 in epoch 0.
-Supervisor: 2025/11/24 12:07:11 committee_broker_b2e.go:238: received from shard 5 in epoch 0.
-BrokerType1Mes received by shard,  add brokerTx1 len  1213
+Supervisor: 2025/11/24 21:45:17 committee_broker_b2e.go:238: received from shard 1 in epoch 0.
+Supervisor: 2025/11/24 21:45:18 committee_broker_b2e.go:238: received from shard 2 in epoch 0.
+broker receive ctx  1215
+Supervisor: 2025/11/24 21:45:26 committee_broker_b2e.go:238: received from shard 3 in epoch 0.
+Supervisor: 2025/11/24 21:45:27 committee_broker_b2e.go:238: received from shard 4 in epoch 0.
+Supervisor: 2025/11/24 21:45:28 committee_broker_b2e.go:238: received from shard 5 in epoch 0.
+Supervisor: 2025/11/24 21:45:29 committee_broker_b2e.go:238: received from shard 5 in epoch 0.
+Supervisor: 2025/11/24 21:45:29 committee_broker_b2e.go:238: received from shard 5 in epoch 0.
+Supervisor: 2025/11/24 21:45:31 committee_broker_b2e.go:238: received from shard 0 in epoch 0.
+Supervisor: 2025/11/24 21:45:32 committee_broker_b2e.go:238: received from shard 1 in epoch 0.
+Supervisor: 2025/11/24 21:45:33 committee_broker_b2e.go:238: received from shard 2 in epoch 0.
+Supervisor: 2025/11/24 21:45:35 committee_broker_b2e.go:238: received from shard 3 in epoch 0.
+Supervisor: 2025/11/24 21:45:37 committee_broker_b2e.go:238: received from shard 4 in epoch 0.
+Supervisor: 2025/11/24 21:45:38 committee_broker_b2e.go:238: received from shard 5 in epoch 0.
+Supervisor: 2025/11/24 21:45:38 committee_broker_b2e.go:238: received from shard 0 in epoch 0.
+Supervisor: 2025/11/24 21:45:38 committee_broker_b2e.go:238: received from shard 1 in epoch 0.
+Supervisor: 2025/11/24 21:45:38 committee_broker_b2e.go:238: received from shard 2 in epoch 0.
+Supervisor: 2025/11/24 21:45:39 committee_broker_b2e.go:238: received from shard 3 in epoch 0.
+Supervisor: 2025/11/24 21:45:41 committee_broker_b2e.go:238: received from shard 4 in epoch 0.
+Supervisor: 2025/11/24 21:45:42 committee_broker_b2e.go:238: received from shard 5 in epoch 0.
+Supervisor: 2025/11/24 21:45:42 committee_broker_b2e.go:238: received from shard 0 in epoch 0.
+Supervisor: 2025/11/24 21:45:42 committee_broker_b2e.go:238: received from shard 1 in epoch 0.
+Supervisor: 2025/11/24 21:45:42 committee_broker_b2e.go:238: received from shard 2 in epoch 0.
+Supervisor: 2025/11/24 21:45:42 committee_broker_b2e.go:238: received from shard 3 in epoch 0.
+Supervisor: 2025/11/24 21:45:42 committee_broker_b2e.go:238: received from shard 4 in epoch 0.
+Supervisor: 2025/11/24 21:45:42 committee_broker_b2e.go:238: received from shard 4 in epoch 0.
+Supervisor: 2025/11/24 21:45:42 committee_broker_b2e.go:238: received from shard 5 in epoch 0.
+Supervisor: 2025/11/24 21:45:42 committee_broker_b2e.go:238: received from shard 0 in epoch 0.
+Supervisor: 2025/11/24 21:45:42 committee_broker_b2e.go:238: received from shard 0 in epoch 0.
+Supervisor: 2025/11/24 21:45:42 committee_broker_b2e.go:238: received from shard 1 in epoch 0.
+Supervisor: 2025/11/24 21:45:42 committee_broker_b2e.go:238: received from shard 1 in epoch 0.
+Supervisor: 2025/11/24 21:45:42 committee_broker_b2e.go:238: received from shard 2 in epoch 0.
+Supervisor: 2025/11/24 21:45:42 committee_broker_b2e.go:238: received from shard 2 in epoch 0.
+Supervisor: 2025/11/24 21:45:42 committee_broker_b2e.go:238: received from shard 3 in epoch 0.
+Supervisor: 2025/11/24 21:45:42 committee_broker_b2e.go:238: received from shard 3 in epoch 0.
+Supervisor: 2025/11/24 21:45:42 committee_broker_b2e.go:238: received from shard 4 in epoch 0.
+BrokerType1Mes received by shard,  add brokerTx1 len  1215
 dirpath  ./result/b2e_execution_time/
-Supervisor: 2025/11/24 12:07:12 committee_broker_b2e.go:238: received from shard 5 in epoch 0.
-Supervisor: 2025/11/24 12:07:12 committee_broker_b2e.go:238: received from shard 0 in epoch 0.
-Supervisor: 2025/11/24 12:07:12 committee_broker_b2e.go:238: received from shard 1 in epoch 0.
-Supervisor: 2025/11/24 12:07:12 committee_broker_b2e.go:238: received from shard 2 in epoch 0.
-Supervisor: 2025/11/24 12:07:12 committee_broker_b2e.go:238: received from shard 3 in epoch 0.
-Supervisor: 2025/11/24 12:07:12 committee_broker_b2e.go:238: received from shard 5 in epoch 0.
-Supervisor: 2025/11/24 12:07:12 committee_broker_b2e.go:238: received from shard 5 in epoch 0.
-Supervisor: 2025/11/24 12:07:12 committee_broker_b2e.go:238: received from shard 5 in epoch 0.
-Supervisor: 2025/11/24 12:07:12 committee_broker_b2e.go:238: received from shard 0 in epoch 0.
-Supervisor: 2025/11/24 12:07:12 committee_broker_b2e.go:238: received from shard 0 in epoch 0.
-Supervisor: 2025/11/24 12:07:12 committee_broker_b2e.go:238: received from shard 0 in epoch 0.
-Supervisor: 2025/11/24 12:07:12 committee_broker_b2e.go:238: received from shard 1 in epoch 0.
-Supervisor: 2025/11/24 12:07:12 committee_broker_b2e.go:238: received from shard 1 in epoch 0.
-Supervisor: 2025/11/24 12:07:12 committee_broker_b2e.go:238: received from shard 1 in epoch 0.
-Supervisor: 2025/11/24 12:07:12 committee_broker_b2e.go:238: received from shard 2 in epoch 0.
-Supervisor: 2025/11/24 12:07:12 committee_broker_b2e.go:238: received from shard 2 in epoch 0.
-Supervisor: 2025/11/24 12:07:12 committee_broker_b2e.go:238: received from shard 2 in epoch 0.
-Supervisor: 2025/11/24 12:07:12 committee_broker_b2e.go:238: received from shard 3 in epoch 0.
-Supervisor: 2025/11/24 12:07:12 committee_broker_b2e.go:238: received from shard 3 in epoch 0.
-Supervisor: 2025/11/24 12:07:12 committee_broker_b2e.go:238: received from shard 3 in epoch 0.
-New executionTime= 30.458042ms
+Supervisor: 2025/11/24 21:45:44 committee_broker_b2e.go:238: received from shard 0 in epoch 0.
+New executionTime= 33.753334ms
 @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-Supervisor: 2025/11/24 12:07:15 committee_broker_b2e.go:238: received from shard 0 in epoch 0.
-broker receive ctx  543
 receive confirm  brokerTx1 len  97
 broker tx2 add to pool len  97
-Supervisor: 2025/11/24 12:07:23 committee_broker_b2e.go:238: received from shard 1 in epoch 0.
-BrokerType1Mes received by shard,  add brokerTx1 len  543
-dirpath  ./result/b2e_execution_time/
+Supervisor: 2025/11/24 21:45:48 committee_broker_b2e.go:238: received from shard 1 in epoch 0.
+broker receive ctx  497
 receive confirm  brokerTx1 len  101
 broker tx2 add to pool len  101
-Supervisor: 2025/11/24 12:07:25 committee_broker_b2e.go:238: received from shard 2 in epoch 0.
-New executionTime= 21.445ms
-@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+BrokerType1Mes received by shard,  add brokerTx1 len  497
+dirpath  ./result/b2e_execution_time/
+Supervisor: 2025/11/24 21:45:55 committee_broker_b2e.go:238: received from shard 2 in epoch 0.
 receive confirm  brokerTx1 len  452
 broker tx2 add to pool len  452
-Supervisor: 2025/11/24 12:07:28 committee_broker_b2e.go:238: received from shard 3 in epoch 0.
-broker receive ctx  851
-receive confirm  brokerTx1 len  204
-broker tx2 add to pool len  204
-Supervisor: 2025/11/24 12:07:35 committee_broker_b2e.go:238: received from shard 4 in epoch 0.
-BrokerType1Mes received by shard,  add brokerTx1 len  851
-dirpath  ./result/b2e_execution_time/
-receive confirm  brokerTx1 len  339
-broker tx2 add to pool len  339
-Supervisor: 2025/11/24 12:07:38 committee_broker_b2e.go:238: received from shard 5 in epoch 0.
-New executionTime= 45.780125ms
+Supervisor: 2025/11/24 21:45:59 committee_broker_b2e.go:238: received from shard 3 in epoch 0.
+New executionTime= 21.193208ms
 @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+receive confirm  brokerTx1 len  205
+broker tx2 add to pool len  205
+Supervisor: 2025/11/24 21:46:01 committee_broker_b2e.go:238: received from shard 4 in epoch 0.
+broker receive ctx  289
+receive confirm  brokerTx1 len  340
+broker tx2 add to pool len  340
+BrokerType1Mes received by shard,  add brokerTx1 len  289
+dirpath  ./result/b2e_execution_time/
+Supervisor: 2025/11/24 21:46:10 committee_broker_b2e.go:238: received from shard 5 in epoch 0.
+receive confirm  brokerTx1 len  20
+New executionTime= 5.217375ms
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+broker tx2 add to pool len  20
+Supervisor: 2025/11/24 21:46:12 committee_broker_b2e.go:238: received from shard 0 in epoch 0.
+broker receive ctx  84
+Supervisor: 2025/11/24 21:46:19 committee_broker_b2e.go:238: received from shard 1 in epoch 0.
+BrokerType1Mes received by shard,  add brokerTx1 len  84
+dirpath  ./result/b2e_execution_time/
+receive confirm  brokerTx2 len  21
+finish ctx with adding tx1 and tx2 to txpool,len 21
+Supervisor: 2025/11/24 21:46:20 committee_broker_b2e.go:238: received from shard 2 in epoch 0.
+New executionTime= 769.75µs
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+Supervisor: 2025/11/24 21:46:21 committee_broker_b2e.go:238: received from shard 3 in epoch 0.
+broker receive ctx  1
+receive confirm  brokerTx2 len  13
+finish ctx with adding tx1 and tx2 to txpool,len 13
+Supervisor: 2025/11/24 21:46:29 committee_broker_b2e.go:238: received from shard 4 in epoch 0.
+BrokerType1Mes received by shard,  add brokerTx1 len  1
+dirpath  ./result/b2e_execution_time/
+receive confirm  brokerTx2 len  18
+finish ctx with adding tx1 and tx2 to txpool,len 18
+Supervisor: 2025/11/24 21:46:30 committee_broker_b2e.go:238: received from shard 5 in epoch 0.
+receive confirm  brokerTx2 len  19
+finish ctx with adding tx1 and tx2 to txpool,len 19
+Supervisor: 2025/11/24 21:46:32 committee_broker_b2e.go:238: received from shard 0 in epoch 0.
+receive confirm  brokerTx1 len  22
+broker tx2 add to pool len  22
+receive confirm  brokerTx2 len  17
+finish ctx with adding tx1 and tx2 to txpool,len 17
+Supervisor: 2025/11/24 21:46:34 committee_broker_b2e.go:238: received from shard 1 in epoch 0.
+receive confirm  brokerTx1 len  16
+broker tx2 add to pool len  16
+Supervisor: 2025/11/24 21:46:37 committee_broker_b2e.go:238: received from shard 2 in epoch 0.
+receive confirm  brokerTx1 len  99
+broker tx2 add to pool len  99
+receive confirm  brokerTx2 len  51
+finish ctx with adding tx1 and tx2 to txpool,len 51
+Supervisor: 2025/11/24 21:46:39 committee_broker_b2e.go:238: received from shard 3 in epoch 0.
+receive confirm  brokerTx1 len  38
+broker tx2 add to pool len  38
+receive confirm  brokerTx2 len  11
+finish ctx with adding tx1 and tx2 to txpool,len 11
+Supervisor: 2025/11/24 21:46:42 committee_broker_b2e.go:238: received from shard 4 in epoch 0.
+receive confirm  brokerTx1 len  303
+broker tx2 add to pool len  303
+receive confirm  brokerTx2 len  22
+finish ctx with adding tx1 and tx2 to txpool,len 22
+Supervisor: 2025/11/24 21:46:44 committee_broker_b2e.go:238: received from shard 5 in epoch 0.
+receive confirm  brokerTx1 len  19
+broker tx2 add to pool len  19
+receive confirm  brokerTx2 len  26
+finish ctx with adding tx1 and tx2 to txpool,len 26
+Supervisor: 2025/11/24 21:46:47 committee_broker_b2e.go:238: received from shard 0 in epoch 0.
+Supervisor: 2025/11/24 21:46:48 committee_broker_b2e.go:238: received from shard 1 in epoch 0.
+Supervisor: 2025/11/24 21:46:49 committee_broker_b2e.go:238: received from shard 2 in epoch 0.
+Supervisor: 2025/11/24 21:46:51 committee_broker_b2e.go:238: received from shard 3 in epoch 0.
+Supervisor: 2025/11/24 21:46:52 committee_broker_b2e.go:238: received from shard 4 in epoch 0.
+Supervisor: 2025/11/24 21:46:54 committee_broker_b2e.go:238: received from shard 5 in epoch 0.
+Supervisor: 2025/11/24 21:46:55 committee_broker_b2e.go:238: received from shard 0 in epoch 0.
+receive confirm  brokerTx2 len  31
+finish ctx with adding tx1 and tx2 to txpool,len 31
+Supervisor: 2025/11/24 21:46:57 committee_broker_b2e.go:238: received from shard 1 in epoch 0.
+receive confirm  brokerTx2 len  45
+finish ctx with adding tx1 and tx2 to txpool,len 45
+Supervisor: 2025/11/24 21:46:58 committee_broker_b2e.go:238: received from shard 2 in epoch 0.
+receive confirm  brokerTx2 len  56
+finish ctx with adding tx1 and tx2 to txpool,len 56
+Supervisor: 2025/11/24 21:46:59 committee_broker_b2e.go:238: received from shard 3 in epoch 0.
+receive confirm  brokerTx2 len  11
+finish ctx with adding tx1 and tx2 to txpool,len 11
+Supervisor: 2025/11/24 21:47:01 committee_broker_b2e.go:238: received from shard 4 in epoch 0.
+receive confirm  brokerTx2 len  246
+finish ctx with adding tx1 and tx2 to txpool,len 246
+Supervisor: 2025/11/24 21:47:02 committee_broker_b2e.go:238: received from shard 5 in epoch 0.
+receive confirm  brokerTx2 len  46
+finish ctx with adding tx1 and tx2 to txpool,len 46
+Supervisor: 2025/11/24 21:47:03 committee_broker_b2e.go:238: received from shard 0 in epoch 0.
+receive confirm  brokerTx1 len  19
+broker tx2 add to pool len  19
+receive confirm  brokerTx2 len  48
+finish ctx with adding tx1 and tx2 to txpool,len 48
+Supervisor: 2025/11/24 21:47:06 committee_broker_b2e.go:238: received from shard 1 in epoch 0.
+receive confirm  brokerTx1 len  9
+broker tx2 add to pool len  9
+receive confirm  brokerTx2 len  69
+finish ctx with adding tx1 and tx2 to txpool,len 69
+Supervisor: 2025/11/24 21:47:08 committee_broker_b2e.go:238: received from shard 2 in epoch 0.
 receive confirm  brokerTx1 len  20
 broker tx2 add to pool len  20
-Supervisor: 2025/11/24 12:07:40 committee_broker_b2e.go:238: received from shard 0 in epoch 0.
+receive confirm  brokerTx2 len  69
+finish ctx with adding tx1 and tx2 to txpool,len 69
+Supervisor: 2025/11/24 21:47:11 committee_broker_b2e.go:238: received from shard 3 in epoch 0.
+receive confirm  brokerTx1 len  105
+broker tx2 add to pool len  105
+receive confirm  brokerTx2 len  98
+finish ctx with adding tx1 and tx2 to txpool,len 98
+Supervisor: 2025/11/24 21:47:13 committee_broker_b2e.go:238: received from shard 4 in epoch 0.
+receive confirm  brokerTx1 len  121
+broker tx2 add to pool len  121
+receive confirm  brokerTx2 len  222
+finish ctx with adding tx1 and tx2 to txpool,len 222
+Supervisor: 2025/11/24 21:47:16 committee_broker_b2e.go:238: received from shard 5 in epoch 0.
+receive confirm  brokerTx1 len  15
+broker tx2 add to pool len  15
+receive confirm  brokerTx2 len  56
+finish ctx with adding tx1 and tx2 to txpool,len 56
+Supervisor: 2025/11/24 21:47:18 committee_broker_b2e.go:238: received from shard 0 in epoch 0.
+receive confirm  brokerTx2 len  1
+finish ctx with adding tx1 and tx2 to txpool,len 1
+Supervisor: 2025/11/24 21:47:20 committee_broker_b2e.go:238: received from shard 1 in epoch 0.
+receive confirm  brokerTx2 len  3
+finish ctx with adding tx1 and tx2 to txpool,len 3
+Supervisor: 2025/11/24 21:47:21 committee_broker_b2e.go:238: received from shard 2 in epoch 0.
+receive confirm  brokerTx2 len  5
+finish ctx with adding tx1 and tx2 to txpool,len 5
+Supervisor: 2025/11/24 21:47:23 committee_broker_b2e.go:238: received from shard 3 in epoch 0.
+receive confirm  brokerTx2 len  6
+finish ctx with adding tx1 and tx2 to txpool,len 6
+Supervisor: 2025/11/24 21:47:24 committee_broker_b2e.go:238: received from shard 4 in epoch 0.
+receive confirm  brokerTx2 len  5
+finish ctx with adding tx1 and tx2 to txpool,len 5
+Supervisor: 2025/11/24 21:47:26 committee_broker_b2e.go:238: received from shard 5 in epoch 0.
+Supervisor: 2025/11/24 21:47:27 committee_broker_b2e.go:238: received from shard 5 in epoch 0.
+Supervisor: 2025/11/24 21:47:27 committee_broker_b2e.go:238: received from shard 0 in epoch 0.
+receive confirm  brokerTx1 len  7
+broker tx2 add to pool len  7
+Supervisor: 2025/11/24 21:47:29 committee_broker_b2e.go:238: received from shard 1 in epoch 0.
+receive confirm  brokerTx1 len  6
+broker tx2 add to pool len  6
+Supervisor: 2025/11/24 21:47:32 committee_broker_b2e.go:238: received from shard 2 in epoch 0.
+receive confirm  brokerTx1 len  4
+broker tx2 add to pool len  4
+Supervisor: 2025/11/24 21:47:34 committee_broker_b2e.go:238: received from shard 3 in epoch 0.
+receive confirm  brokerTx1 len  59
+broker tx2 add to pool len  59
+Supervisor: 2025/11/24 21:47:37 committee_broker_b2e.go:238: received from shard 4 in epoch 0.
+receive confirm  brokerTx1 len  8
+broker tx2 add to pool len  8
+Supervisor: 2025/11/24 21:47:40 committee_broker_b2e.go:238: received from shard 5 in epoch 0.
+Supervisor: 2025/11/24 21:47:40 committee_broker_b2e.go:238: received from shard 0 in epoch 0.
+Supervisor: 2025/11/24 21:47:40 committee_broker_b2e.go:238: received from shard 1 in epoch 0.
+Supervisor: 2025/11/24 21:47:40 committee_broker_b2e.go:238: received from shard 2 in epoch 0.
+Supervisor: 2025/11/24 21:47:40 committee_broker_b2e.go:238: received from shard 3 in epoch 0.
+Supervisor: 2025/11/24 21:47:40 committee_broker_b2e.go:238: received from shard 5 in epoch 0.
+Supervisor: 2025/11/24 21:47:40 committee_broker_b2e.go:238: received from shard 4 in epoch 0.
+Supervisor: 2025/11/24 21:47:40 committee_broker_b2e.go:238: received from shard 0 in epoch 0.
+Supervisor: 2025/11/24 21:47:40 committee_broker_b2e.go:238: received from shard 1 in epoch 0.
+Supervisor: 2025/11/24 21:47:40 committee_broker_b2e.go:238: received from shard 2 in epoch 0.
+Supervisor: 2025/11/24 21:47:40 committee_broker_b2e.go:238: received from shard 3 in epoch 0.
+receive confirm  brokerTx1 len  1
+broker tx2 add to pool len  1
+Supervisor: 2025/11/24 21:47:42 committee_broker_b2e.go:238: received from shard 5 in epoch 0.
+receive confirm  brokerTx2 len  4
+finish ctx with adding tx1 and tx2 to txpool,len 4
+Supervisor: 2025/11/24 21:47:44 committee_broker_b2e.go:238: received from shard 4 in epoch 0.
+Supervisor: 2025/11/24 21:47:44 committee_broker_b2e.go:238: received from shard 0 in epoch 0.
+Supervisor: 2025/11/24 21:47:44 committee_broker_b2e.go:238: received from shard 1 in epoch 0.
+receive confirm  brokerTx2 len  2
+finish ctx with adding tx1 and tx2 to txpool,len 2
+Supervisor: 2025/11/24 21:47:46 committee_broker_b2e.go:238: received from shard 2 in epoch 0.
+receive confirm  brokerTx2 len  4
+finish ctx with adding tx1 and tx2 to txpool,len 4
+Supervisor: 2025/11/24 21:47:47 committee_broker_b2e.go:238: received from shard 3 in epoch 0.
+receive confirm  brokerTx2 len  7
+finish ctx with adding tx1 and tx2 to txpool,len 7
+Supervisor: 2025/11/24 21:47:49 committee_broker_b2e.go:238: received from shard 5 in epoch 0.
+receive confirm  brokerTx2 len  14
+finish ctx with adding tx1 and tx2 to txpool,len 14
+Supervisor: 2025/11/24 21:47:51 committee_broker_b2e.go:238: received from shard 4 in epoch 0.
+receive confirm  brokerTx2 len  5
+finish ctx with adding tx1 and tx2 to txpool,len 5
+Supervisor: 2025/11/24 21:47:52 committee_broker_b2e.go:238: received from shard 0 in epoch 0.
+receive confirm  brokerTx2 len  21
+finish ctx with adding tx1 and tx2 to txpool,len 21
+Supervisor: 2025/11/24 21:47:53 committee_broker_b2e.go:238: received from shard 1 in epoch 0.
+receive confirm  brokerTx2 len  14
+finish ctx with adding tx1 and tx2 to txpool,len 14
+Supervisor: 2025/11/24 21:47:55 committee_broker_b2e.go:238: received from shard 2 in epoch 0.
+receive confirm  brokerTx2 len  2
+finish ctx with adding tx1 and tx2 to txpool,len 2
+Supervisor: 2025/11/24 21:47:57 committee_broker_b2e.go:238: received from shard 3 in epoch 0.
+receive confirm  brokerTx2 len  22
+finish ctx with adding tx1 and tx2 to txpool,len 22
+Supervisor: 2025/11/24 21:47:58 committee_broker_b2e.go:238: received from shard 5 in epoch 0.
+receive confirm  brokerTx2 len  65
+finish ctx with adding tx1 and tx2 to txpool,len 65
+Supervisor: 2025/11/24 21:47:59 committee_broker_b2e.go:238: received from shard 4 in epoch 0.
+receive confirm  brokerTx2 len  42
+finish ctx with adding tx1 and tx2 to txpool,len 42
+Supervisor: 2025/11/24 21:48:01 committee_broker_b2e.go:238: received from shard 0 in epoch 0.
+receive confirm  brokerTx2 len  57
+finish ctx with adding tx1 and tx2 to txpool,len 57
+Supervisor: 2025/11/24 21:48:02 committee_broker_b2e.go:238: received from shard 1 in epoch 0.
+receive confirm  brokerTx2 len  71
+finish ctx with adding tx1 and tx2 to txpool,len 71
+Supervisor: 2025/11/24 21:48:04 committee_broker_b2e.go:238: received from shard 2 in epoch 0.
+receive confirm  brokerTx2 len  77
+finish ctx with adding tx1 and tx2 to txpool,len 77
+Supervisor: 2025/11/24 21:48:06 committee_broker_b2e.go:238: received from shard 3 in epoch 0.
+receive confirm  brokerTx2 len  66
+finish ctx with adding tx1 and tx2 to txpool,len 66
+Supervisor: 2025/11/24 21:48:07 committee_broker_b2e.go:238: received from shard 5 in epoch 0.
+Supervisor: 2025/11/24 21:48:07 committee_broker_b2e.go:238: received from shard 4 in epoch 0.
+receive confirm  brokerTx2 len  5
+finish ctx with adding tx1 and tx2 to txpool,len 5
+Supervisor: 2025/11/24 21:48:09 committee_broker_b2e.go:238: received from shard 0 in epoch 0.
+receive confirm  brokerTx2 len  4
+finish ctx with adding tx1 and tx2 to txpool,len 4
+Supervisor: 2025/11/24 21:48:10 committee_broker_b2e.go:238: received from shard 1 in epoch 0.
+receive confirm  brokerTx2 len  4
+finish ctx with adding tx1 and tx2 to txpool,len 4
+Supervisor: 2025/11/24 21:48:12 committee_broker_b2e.go:238: received from shard 2 in epoch 0.
+receive confirm  brokerTx2 len  1
+finish ctx with adding tx1 and tx2 to txpool,len 1
+Supervisor: 2025/11/24 21:48:13 committee_broker_b2e.go:238: received from shard 3 in epoch 0.
+receive confirm  brokerTx2 len  5
+finish ctx with adding tx1 and tx2 to txpool,len 5
+Supervisor: 2025/11/24 21:48:14 committee_broker_b2e.go:238: received from shard 5 in epoch 0.
+Supervisor: 2025/11/24 21:48:14 committee_broker_b2e.go:238: received from shard 4 in epoch 0.
+receive confirm  brokerTx2 len  5
+finish ctx with adding tx1 and tx2 to txpool,len 5
+Supervisor: 2025/11/24 21:48:16 committee_broker_b2e.go:238: received from shard 0 in epoch 0.
+Supervisor: 2025/11/24 21:48:16 committee_broker_b2e.go:238: received from shard 1 in epoch 0.
+Supervisor: 2025/11/24 21:48:16 committee_broker_b2e.go:238: received from shard 2 in epoch 0.
+Supervisor: 2025/11/24 21:48:16 committee_broker_b2e.go:238: received from shard 3 in epoch 0.
+Supervisor: 2025/11/24 21:48:16 committee_broker_b2e.go:238: received from shard 5 in epoch 0.
+Supervisor: 2025/11/24 21:48:16 committee_broker_b2e.go:238: received from shard 4 in epoch 0.
+Supervisor: 2025/11/24 21:48:16 committee_broker_b2e.go:238: received from shard 0 in epoch 0.
+Supervisor: 2025/11/24 21:48:16 committee_broker_b2e.go:238: received from shard 0 in epoch 0.
+Supervisor: 2025/11/24 21:48:16 committee_broker_b2e.go:238: received from shard 0 in epoch 0.
+receive confirm  brokerTx2 len  4
+finish ctx with adding tx1 and tx2 to txpool,len 4
+Supervisor: 2025/11/24 21:48:18 committee_broker_b2e.go:238: received from shard 1 in epoch 0.
+Supervisor: 2025/11/24 21:48:18 committee_broker_b2e.go:238: received from shard 1 in epoch 0.
+Supervisor: 2025/11/24 21:48:18 committee_broker_b2e.go:238: received from shard 2 in epoch 0.
+Supervisor: 2025/11/24 21:48:18 committee_broker_b2e.go:238: received from shard 3 in epoch 0.
+Supervisor: 2025/11/24 21:48:18 committee_broker_b2e.go:238: received from shard 5 in epoch 0.
+Supervisor: 2025/11/24 21:48:18 committee_broker_b2e.go:238: received from shard 4 in epoch 0.
+Supervisor: 2025/11/24 21:48:18 committee_broker_b2e.go:238: received from shard 0 in epoch 0.
+receive confirm  brokerTx2 len  20
+finish ctx with adding tx1 and tx2 to txpool,len 20
+Supervisor: 2025/11/24 21:48:19 committee_broker_b2e.go:238: received from shard 1 in epoch 0.
+receive confirm  brokerTx2 len  2
+finish ctx with adding tx1 and tx2 to txpool,len 2
+Supervisor: 2025/11/24 21:48:21 committee_broker_b2e.go:238: received from shard 2 in epoch 0.
+Supervisor: 2025/11/24 21:48:21 committee_broker_b2e.go:238: received from shard 3 in epoch 0.
+Supervisor: 2025/11/24 21:48:21 committee_broker_b2e.go:238: received from shard 3 in epoch 0.
+receive confirm  brokerTx2 len  4
+finish ctx with adding tx1 and tx2 to txpool,len 4
+Supervisor: 2025/11/24 21:48:23 committee_broker_b2e.go:238: received from shard 5 in epoch 0.
+receive confirm  brokerTx2 len  2
+finish ctx with adding tx1 and tx2 to txpool,len 2
+Supervisor: 2025/11/24 21:48:24 committee_broker_b2e.go:238: received from shard 4 in epoch 0.
+Supervisor: 2025/11/24 21:48:24 committee_broker_b2e.go:238: received from shard 0 in epoch 0.
+receive confirm  brokerTx2 len  20
+finish ctx with adding tx1 and tx2 to txpool,len 20
+Supervisor: 2025/11/24 21:48:26 committee_broker_b2e.go:238: received from shard 1 in epoch 0.
+receive confirm  brokerTx2 len  21
+finish ctx with adding tx1 and tx2 to txpool,len 21
+Supervisor: 2025/11/24 21:48:27 committee_broker_b2e.go:238: received from shard 2 in epoch 0.
+receive confirm  brokerTx2 len  4
+finish ctx with adding tx1 and tx2 to txpool,len 4
+Supervisor: 2025/11/24 21:48:28 committee_broker_b2e.go:238: received from shard 3 in epoch 0.
+receive confirm  brokerTx2 len  4
+finish ctx with adding tx1 and tx2 to txpool,len 4
+Supervisor: 2025/11/24 21:48:29 committee_broker_b2e.go:238: received from shard 5 in epoch 0.
+receive confirm  brokerTx2 len  21
+finish ctx with adding tx1 and tx2 to txpool,len 21
+Supervisor: 2025/11/24 21:48:31 committee_broker_b2e.go:238: received from shard 4 in epoch 0.
+receive confirm  brokerTx2 len  12
+finish ctx with adding tx1 and tx2 to txpool,len 12
+Supervisor: 2025/11/24 21:48:32 committee_broker_b2e.go:238: received from shard 0 in epoch 0.
+Supervisor: 2025/11/24 21:48:32 committee_broker_b2e.go:238: received from shard 1 in epoch 0.
+receive confirm  brokerTx2 len  23
+finish ctx with adding tx1 and tx2 to txpool,len 23
+Supervisor: 2025/11/24 21:48:34 committee_broker_b2e.go:238: received from shard 2 in epoch 0.
+receive confirm  brokerTx2 len  25
+finish ctx with adding tx1 and tx2 to txpool,len 25
+Supervisor: 2025/11/24 21:48:37 committee_broker_b2e.go:238: received from shard 3 in epoch 0.
+receive confirm  brokerTx2 len  27
+finish ctx with adding tx1 and tx2 to txpool,len 27
+Supervisor: 2025/11/24 21:48:38 committee_broker_b2e.go:238: received from shard 5 in epoch 0.
+receive confirm  brokerTx2 len  32
+finish ctx with adding tx1 and tx2 to txpool,len 32
+Supervisor: 2025/11/24 21:48:40 committee_broker_b2e.go:238: received from shard 4 in epoch 0.
+receive confirm  brokerTx2 len  34
+finish ctx with adding tx1 and tx2 to txpool,len 34
+Supervisor: 2025/11/24 21:48:41 committee_broker_b2e.go:238: received from shard 0 in epoch 0.
+Supervisor: 2025/11/24 21:48:41 committee_broker_b2e.go:238: received from shard 1 in epoch 0.
+Supervisor: 2025/11/24 21:48:41 committee_broker_b2e.go:238: received from shard 2 in epoch 0.
+receive confirm  brokerTx2 len  28
+finish ctx with adding tx1 and tx2 to txpool,len 28
+Supervisor: 2025/11/24 21:48:42 committee_broker_b2e.go:238: received from shard 3 in epoch 0.
+Supervisor: 2025/11/24 21:48:42 committee_broker_b2e.go:238: received from shard 5 in epoch 0.
+Supervisor: 2025/11/24 21:48:42 committee_broker_b2e.go:238: received from shard 4 in epoch 0.
+receive confirm  brokerTx2 len  6
+finish ctx with adding tx1 and tx2 to txpool,len 6
+Supervisor: 2025/11/24 21:48:44 committee_broker_b2e.go:238: received from shard 0 in epoch 0.
+receive confirm  brokerTx2 len  3
+finish ctx with adding tx1 and tx2 to txpool,len 3
+Supervisor: 2025/11/24 21:48:45 committee_broker_b2e.go:238: received from shard 1 in epoch 0.
+receive confirm  brokerTx2 len  1
+finish ctx with adding tx1 and tx2 to txpool,len 1
+Supervisor: 2025/11/24 21:48:47 committee_broker_b2e.go:238: received from shard 2 in epoch 0.
+Supervisor: 2025/11/24 21:48:47 committee_broker_b2e.go:238: received from shard 3 in epoch 0.
+receive confirm  brokerTx2 len  1
+finish ctx with adding tx1 and tx2 to txpool,len 1
+Supervisor: 2025/11/24 21:48:48 committee_broker_b2e.go:238: received from shard 5 in epoch 0.
+receive confirm  brokerTx2 len  1
+finish ctx with adding tx1 and tx2 to txpool,len 1
+Supervisor: 2025/11/24 21:48:49 committee_broker_b2e.go:238: received from shard 4 in epoch 0.
+Supervisor: 2025/11/24 21:48:49 committee_broker_b2e.go:238: received from shard 0 in epoch 0.
+receive confirm  brokerTx2 len  16
+finish ctx with adding tx1 and tx2 to txpool,len 16
+Supervisor: 2025/11/24 21:48:51 committee_broker_b2e.go:238: received from shard 1 in epoch 0.
+receive confirm  brokerTx2 len  1
+finish ctx with adding tx1 and tx2 to txpool,len 1
+Supervisor: 2025/11/24 21:48:52 committee_broker_b2e.go:238: received from shard 2 in epoch 0.
+receive confirm  brokerTx2 len  4
+finish ctx with adding tx1 and tx2 to txpool,len 4
+Supervisor: 2025/11/24 21:48:54 committee_broker_b2e.go:238: received from shard 3 in epoch 0.
+receive confirm  brokerTx2 len  2
+finish ctx with adding tx1 and tx2 to txpool,len 2
+Supervisor: 2025/11/24 21:48:56 committee_broker_b2e.go:238: received from shard 5 in epoch 0.
+receive confirm  brokerTx2 len  3
+finish ctx with adding tx1 and tx2 to txpool,len 3
+Supervisor: 2025/11/24 21:48:58 committee_broker_b2e.go:238: received from shard 4 in epoch 0.
+Supervisor: 2025/11/24 21:48:58 committee_broker_b2e.go:238: received from shard 0 in epoch 0.
+Supervisor: 2025/11/24 21:48:58 committee_broker_b2e.go:238: received from shard 1 in epoch 0.
+receive confirm  brokerTx2 len  9
+finish ctx with adding tx1 and tx2 to txpool,len 9
+Supervisor: 2025/11/24 21:48:59 committee_broker_b2e.go:238: received from shard 2 in epoch 0.
+Supervisor: 2025/11/24 21:48:59 committee_broker_b2e.go:238: received from shard 3 in epoch 0.
+receive confirm  brokerTx2 len  1
+finish ctx with adding tx1 and tx2 to txpool,len 1
+Supervisor: 2025/11/24 21:49:01 committee_broker_b2e.go:238: received from shard 5 in epoch 0.
+receive confirm  brokerTx2 len  15
+finish ctx with adding tx1 and tx2 to txpool,len 15
+Supervisor: 2025/11/24 21:49:02 committee_broker_b2e.go:238: received from shard 4 in epoch 0.
+receive confirm  brokerTx2 len  1
+finish ctx with adding tx1 and tx2 to txpool,len 1
+Supervisor: 2025/11/24 21:49:03 committee_broker_b2e.go:238: received from shard 0 in epoch 0.
+Supervisor: 2025/11/24 21:49:03 committee_broker_b2e.go:238: received from shard 1 in epoch 0.
+receive confirm  brokerTx2 len  1
+finish ctx with adding tx1 and tx2 to txpool,len 1
+Supervisor: 2025/11/24 21:49:05 committee_broker_b2e.go:238: received from shard 2 in epoch 0.
+receive confirm  brokerTx2 len  14
+finish ctx with adding tx1 and tx2 to txpool,len 14
+Supervisor: 2025/11/24 21:49:06 committee_broker_b2e.go:238: received from shard 3 in epoch 0.
+Supervisor: 2025/11/24 21:49:06 committee_broker_b2e.go:238: received from shard 5 in epoch 0.
+Supervisor: 2025/11/24 21:49:06 committee_broker_b2e.go:238: received from shard 4 in epoch 0.
+receive confirm  brokerTx2 len  12
+finish ctx with adding tx1 and tx2 to txpool,len 12
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 0 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 1 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 2 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 3 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 5 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 4 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 0 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 0 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 1 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 1 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 2 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 2 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 2 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 3 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 5 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 4 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 0 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 1 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 2 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 2 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 2 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 2 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 3 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 3 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 3 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 3 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 5 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 4 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 0 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 1 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 1 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 1 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 1 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 1 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 1 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 1 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 1 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 1 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 2 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 3 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 3 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 3 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 5 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 5 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 5 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 4 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 4 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 0 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 1 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 1 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 1 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 2 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 2 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 2 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 2 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 2 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 2 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 2 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 2 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 3 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 3 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 3 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 3 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 3 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 3 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 5 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 4 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 0 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 3 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 5 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 5 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 5 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 5 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 5 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 5 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 5 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 5 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 5 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 4 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 4 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 4 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 4 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 4 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 0 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 0 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 0 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 0 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 0 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 4 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 4 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 4 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 4 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 4 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 4 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 0 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 0 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 committee_broker_b2e.go:238: received from shard 0 in epoch 0.
+Supervisor: 2025/11/24 21:49:08 supervisor.go:133: Supervisor: now sending cstop message to all nodes
+Supervisor: 2025/11/24 21:49:08 supervisor.go:139: Supervisor: now Closing
+Supervisor: 2025/11/24 21:49:08 supervisor.go:227: Closing...
+Supervisor: 2025/11/24 21:49:08 supervisor.go:229: Average_TPS
+Supervisor: 2025/11/24 21:49:08 supervisor.go:230: [80.02912435573813] 80.02912435573813
+Supervisor: 2025/11/24 21:49:08 supervisor.go:229: Transaction_Confirm_Latency
+Supervisor: 2025/11/24 21:49:08 supervisor.go:230: [12.797896788131387] 12.797896788131387
+Supervisor: 2025/11/24 21:49:08 supervisor.go:229: CrossTransaction_ratio
+2086
+2086
+Supervisor: 2025/11/24 21:49:08 supervisor.go:230: [0.17318389373183893 12045 2086] 0.17318389373183893
+Supervisor: 2025/11/24 21:49:08 supervisor.go:229: Tx_number
+Supervisor: 2025/11/24 21:49:08 supervisor.go:230: [12045] 12045
+Supervisor: 2025/11/24 21:49:08 supervisor.go:236: Trying to input .csv
+Supervisor: 2025/11/24 21:49:08 supervisor.go:280: [80.02912435573813] 80.02912435573813
+Supervisor: 2025/11/24 21:49:08 supervisor.go:280: [12.797896788131387] 12.797896788131387
+2086
+2086
+2086
+2086
+Supervisor: 2025/11/24 21:49:08 supervisor.go:280: [0.17318389373183893 12045 2086] 0.17318389373183893
+Supervisor: 2025/11/24 21:49:08 supervisor.go:280: [12045] 12045
