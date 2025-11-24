@@ -75,9 +75,11 @@ func (rbhm *RawBrokerPbftExtraHandleMod_forB2E) HandleinCommit(cmsg *message.Com
 		// relay tx for B2E
 		rbhm.pbftNode.CurChain.Txpool.RelayPool = make(map[uint64][]*core.Transaction)
 		relay1Txs := make([]*core.Transaction, 0)
-
+		innertxs := make([]*core.Transaction, 0)
 		// generate block infos
 		for _, tx := range block.Body {
+			rsid := rbhm.pbftNode.CurChain.Get_PartitionMap(tx.Recipient)
+			ssid := rbhm.pbftNode.CurChain.Get_PartitionMap(tx.Sender)
 			if tx.IsAllocatedRecipent || tx.IsAllocatedSender {
 				allocatedTxs = append(allocatedTxs, tx)
 				BATs = append(BATs, tx)
@@ -92,21 +94,26 @@ func (rbhm *RawBrokerPbftExtraHandleMod_forB2E) HandleinCommit(cmsg *message.Com
 				broker1Txs = append(broker1Txs, tx)
 			} else {
 				txExcuted = append(txExcuted, tx)
+				if rsid == ssid {
+					innertxs = append(innertxs, tx)
+				}
 			}
 
+			// if !tx.IsAllocatedRecipent && !tx.IsAllocatedSender && !isBroker1Tx && !isBroker2Tx {
 			// add for relay
-			rsid := rbhm.pbftNode.CurChain.Get_PartitionMap(tx.Recipient)
-			if rsid != rbhm.pbftNode.ShardID {
-				ntx := tx
-				ntx.Relayed = true
-				rbhm.pbftNode.CurChain.Txpool.AddRelayTx(ntx, rsid)
-				relay1Txs = append(relay1Txs, tx)
+			if tx.IsRelay {
+				if rsid != rbhm.pbftNode.ShardID {
+					ntx := tx
+					ntx.Relayed = true
+					rbhm.pbftNode.CurChain.Txpool.AddRelayTx(ntx, rsid)
+					relay1Txs = append(relay1Txs, tx)
+				}
+
+				if rsid == rbhm.pbftNode.ShardID && ssid != rbhm.pbftNode.ShardID && tx.Relayed {
+					relay2Txs_num++
+				}
 			}
 
-			ssid := rbhm.pbftNode.CurChain.Get_PartitionMap(tx.Sender)
-			if rsid == rbhm.pbftNode.ShardID && ssid != rbhm.pbftNode.ShardID && tx.Relayed {
-				relay2Txs_num++
-			}
 		}
 
 		// send relay txs
@@ -186,7 +193,7 @@ func (rbhm *RawBrokerPbftExtraHandleMod_forB2E) HandleinCommit(cmsg *message.Com
 		rbhm.pbftNode.pl.Plog.Printf("S%dN%d : sended excuted txs\n", rbhm.pbftNode.ShardID, rbhm.pbftNode.NodeID)
 		rbhm.pbftNode.CurChain.Txpool.GetLocked()
 		rbhm.pbftNode.writeCSVline([]string{strconv.Itoa(int(block.Header.Number)), strconv.Itoa(len(rbhm.pbftNode.CurChain.Txpool.TxQueue)), strconv.Itoa(bim.BlockBodyLength), strconv.Itoa(len(txExcuted)),
-			strconv.Itoa(len(bim.Broker1Txs)), strconv.Itoa(len(bim.Broker2Txs)), strconv.Itoa(len(bim.AllocatedTxs)), strconv.Itoa(bim.Bat_byte_Size), strconv.Itoa(bim.Block_byte_Size), strconv.FormatFloat(bim.Bat_byte_ratio, 'f', 6, 64), strconv.Itoa(int(bim.Relay1TxNum)), strconv.Itoa(int(bim.Relay2TxNum))})
+			strconv.Itoa(len(bim.Broker1Txs)), strconv.Itoa(len(bim.Broker2Txs)), strconv.Itoa(len(bim.AllocatedTxs)), strconv.Itoa(bim.Bat_byte_Size), strconv.Itoa(bim.Block_byte_Size), strconv.FormatFloat(bim.Bat_byte_ratio, 'f', 6, 64), strconv.Itoa(int(bim.Relay1TxNum)), strconv.Itoa(int(bim.Relay2TxNum)), strconv.Itoa(len(innertxs))})
 		rbhm.pbftNode.CurChain.Txpool.GetUnlocked()
 	}
 	return true

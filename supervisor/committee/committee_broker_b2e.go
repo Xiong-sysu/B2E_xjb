@@ -315,6 +315,7 @@ func (bcm *BrokerCommitteeMod_b2e) dealTxByBroker(txs []*core.Transaction) (itxs
 			if brokerBalance.Cmp(tx.Value) < 0 {
 				count++
 				// relay tx
+				tx.IsRelay = true
 				relay_txs = append(relay_txs, tx)
 				continue
 			}
