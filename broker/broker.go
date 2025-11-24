@@ -68,7 +68,7 @@ func (b *Broker) initBrokerBalance(balance *big.Int) map[string]map[uint64]*big.
 	for _, address := range b.BrokerAddress {
 		BrokerBalance[address] = make(map[uint64]*big.Int)
 		for sid := uint64(0); sid < uint64(params.ShardNum); sid++ {
-			BrokerBalance[address][sid] = new(big.Int).Set(balance)
+			BrokerBalance[address][sid] = new(big.Int).Set(balance.Div(balance, big.NewInt(int64(params.ShardNum))))
 		}
 	}
 	return BrokerBalance
