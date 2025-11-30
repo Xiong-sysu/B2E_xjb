@@ -2,13 +2,9 @@ package main
 
 import (
 	"encoding/csv"
-	"flag"
-	"fmt"
 	"io"
-	"log"
 	"os"
 
-	"blockEmulator/params"
 	"blockEmulator/utils"
 )
 
@@ -62,24 +58,24 @@ func CountIntraShard(csvPath string, maxRecords int) (itx int, vaild_total int, 
 	return itxCount, vaild_total, count, ctxCount, nil
 }
 
-func main() {
-	csvPath := flag.String("csv", params.FileInput, "path to transactions CSV")
-	max := flag.Int("n", 0, "maximum number of records to process (0 = all)")
-	flag.Parse()
+// func main() {
+// 	csvPath := flag.String("csv", params.FileInput, "path to transactions CSV")
+// 	max := flag.Int("n", 0, "maximum number of records to process (0 = all)")
+// 	flag.Parse()
 
-	itx, vaild_total, total, ctxCount, err := CountIntraShard(*csvPath, *max)
-	if err != nil {
-		log.Fatalf("failed to count intra-shard txs: %v", err)
-	}
-	ratio := 0.0
-	if total > 0 {
-		ratio = float64(itx) / float64(vaild_total)
-	}
-	fmt.Printf("Processed records: %d\n", total)
-	fmt.Printf("Valid records: %d\n", vaild_total)
-	fmt.Printf("Intra-shard txs (itx): %d\n", itx)
-	fmt.Printf("Cross-shard txs (ctx): %d\n", ctxCount)
-	fmt.Printf("Ratio itx/valid_total: %.4f\n", ratio)
-	fmt.Printf("Ratio itx/total: %.4f\n", float64(itx)/float64(total))
-	fmt.Printf("theory ratio itx/total: %.4f\n", float64(1)/float64(params.ShardNum))
-}
+// 	itx, vaild_total, total, ctxCount, err := CountIntraShard(*csvPath, *max)
+// 	if err != nil {
+// 		log.Fatalf("failed to count intra-shard txs: %v", err)
+// 	}
+// 	ratio := 0.0
+// 	if total > 0 {
+// 		ratio = float64(itx) / float64(vaild_total)
+// 	}
+// 	fmt.Printf("Processed records: %d\n", total)
+// 	fmt.Printf("Valid records: %d\n", vaild_total)
+// 	fmt.Printf("Intra-shard txs (itx): %d\n", itx)
+// 	fmt.Printf("Cross-shard txs (ctx): %d\n", ctxCount)
+// 	fmt.Printf("Ratio itx/valid_total: %.4f\n", ratio)
+// 	fmt.Printf("Ratio itx/total: %.4f\n", float64(itx)/float64(total))
+// 	fmt.Printf("theory ratio itx/total: %.4f\n", float64(1)/float64(params.ShardNum))
+// }

@@ -43,7 +43,7 @@ func (b *Broker) IsBroker(address string) bool {
 func (b *Broker) initBrokerAddr(num int) []string {
 	b.BrokerBalance = make(map[string]map[uint64]*big.Int)
 	brokerAddress := make([]string, 0)
-	filePath := `./broker/broker`
+	filePath := `./broker/broker1000`
 	readFile, err := os.Open(filePath)
 	if err != nil {
 		fmt.Println(err)
@@ -67,8 +67,9 @@ func (b *Broker) initBrokerBalance(balance *big.Int) map[string]map[uint64]*big.
 	BrokerBalance := make(map[string]map[uint64]*big.Int)
 	for _, address := range b.BrokerAddress {
 		BrokerBalance[address] = make(map[uint64]*big.Int)
+		shardBalance := new(big.Int).Div(new(big.Int).Set(balance), big.NewInt(int64(params.ShardNum)))
 		for sid := uint64(0); sid < uint64(params.ShardNum); sid++ {
-			BrokerBalance[address][sid] = new(big.Int).Set(balance.Div(balance, big.NewInt(int64(params.ShardNum))))
+			BrokerBalance[address][sid] = new(big.Int).Set(shardBalance)
 		}
 	}
 	return BrokerBalance

@@ -24,6 +24,7 @@ type Transaction struct {
 
 	Time time.Time // the time adding in pool
 
+	Commit_time time.Time // the time when this tx is committed in a block
 	// used in transaction relaying
 	Relayed bool
 	// used in broker, if the tx is not a broker1 or broker2 tx, these values should be empty.
@@ -35,7 +36,12 @@ type Transaction struct {
 	FinalRecipient      utils.Address
 	RawTxHash           []byte
 
-	IsRelay bool
+	IsRelay     bool
+	IsNormalItx bool
+	IsBroker1Tx bool
+	IsBroker2Tx bool
+	IsRelay1    bool
+	IsRelay2    bool
 }
 
 func (tx *Transaction) PrintTx() string {

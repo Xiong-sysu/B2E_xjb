@@ -72,12 +72,18 @@ func (rbhm *RawBrokerPbftExtraHandleMod_forB2E) HandleinCommit(cmsg *message.Com
 		relayer_1_2_txs := make([]*core.Transaction, 0)
 		relay2Txs_num := 0
 
+		h := 0
 		// relay tx for B2E
 		rbhm.pbftNode.CurChain.Txpool.RelayPool = make(map[uint64][]*core.Transaction)
 		relay1Txs := make([]*core.Transaction, 0)
 		innertxs := make([]*core.Transaction, 0)
+
+		// Collect per-transaction CSV rows for this block, then write them in batch to reduce IO.
+		txRows := make([][]string, 0, len(block.Body))
+
 		// generate block infos
 		for _, tx := range block.Body {
+			tx.Commit_time = time.Now()
 			rsid := rbhm.pbftNode.CurChain.Get_PartitionMap(tx.Recipient)
 			ssid := rbhm.pbftNode.CurChain.Get_PartitionMap(tx.Sender)
 			if tx.IsAllocatedRecipent || tx.IsAllocatedSender {
@@ -85,36 +91,58 @@ func (rbhm *RawBrokerPbftExtraHandleMod_forB2E) HandleinCommit(cmsg *message.Com
 				continue
 			}
 			isInnerShardTx := tx.RawTxHash == nil // 这里也有可能是需要relay的tx，只有broker tx才会有RawTxHash
-			isBroker1Tx := !isInnerShardTx && tx.Sender == tx.OriginalSender && !tx.IsRelay
-			isBroker2Tx := !isInnerShardTx && tx.Recipient == tx.FinalRecipient && !tx.IsRelay
-			if isBroker2Tx {
+			tx.IsBroker1Tx = !isInnerShardTx && tx.Sender == tx.OriginalSender && !tx.IsRelay
+			tx.IsBroker2Tx = !isInnerShardTx && tx.Recipient == tx.FinalRecipient && !tx.IsRelay
+			if tx.IsBroker2Tx {
 				broker2Txs = append(broker2Txs, tx)
-			} else if isBroker1Tx {
+			} else if tx.IsBroker1Tx {
 				broker1Txs = append(broker1Txs, tx)
 			} else {
 				txExcuted = append(txExcuted, tx) // txExcuted 包含 itx 和 relay1+relayer2 tx（ctx）， 不包含 broker tx 和 allocated tx
 				if rsid == ssid {
 					innertxs = append(innertxs, tx)
+					tx.IsNormalItx = true
 				} else {
-					relayer_1_2_txs = append(relayer_1_2_txs, tx)
+					relayer_1_2_txs = append(relayer_1_2_txs, tx) // 这里剩下的是不是bat、broker、普通itx，那就是relay 和 has broker
+					if tx.HasBroker {
+						h++
+					}
 				}
 			}
 
 			// if !tx.IsAllocatedRecipent && !tx.IsAllocatedSender && !isBroker1Tx && !isBroker2Tx {
-			// add for relay //原本的判断条件会多很多笔 relay 交易，很奇怪
+			// add for relay //原本的判断条件会多很多笔 relay 交易，很奇怪. //解答了，多的是 hasbroker 的
 			if tx.IsRelay {
 				if rsid != rbhm.pbftNode.ShardID {
 					ntx := tx
 					ntx.Relayed = true
 					rbhm.pbftNode.CurChain.Txpool.AddRelayTx(ntx, rsid)
 					relay1Txs = append(relay1Txs, tx)
+					tx.IsRelay1 = true
 				}
 
 				if rsid == rbhm.pbftNode.ShardID && ssid != rbhm.pbftNode.ShardID && tx.Relayed {
 					relay2Txs_num++
+					tx.IsRelay2 = true
 				}
 			}
 
+			tx_makespan := tx.Commit_time.Sub(tx.Time).Milliseconds()
+
+			row := []string{
+				strconv.Itoa(int(block.Header.Number)),
+				strconv.FormatInt(tx.Time.UnixMilli(), 10),        // 毫秒时间戳
+				strconv.FormatInt(tx.Commit_time.UnixMilli(), 10), // 毫秒时间戳
+				strconv.FormatFloat(float64(tx_makespan), 'f', 6, 64),
+				strconv.FormatBool(tx.IsAllocatedRecipent || tx.IsAllocatedSender),
+				strconv.FormatBool(tx.IsBroker1Tx),
+				strconv.FormatBool(tx.IsBroker2Tx),
+				strconv.FormatBool(tx.HasBroker),
+				strconv.FormatBool(tx.IsNormalItx),
+				strconv.FormatBool(tx.IsRelay1),
+				strconv.FormatBool(tx.IsRelay2),
+			}
+			txRows = append(txRows, row)
 		}
 
 		// send relay txs
@@ -194,7 +222,10 @@ func (rbhm *RawBrokerPbftExtraHandleMod_forB2E) HandleinCommit(cmsg *message.Com
 		rbhm.pbftNode.pl.Plog.Printf("S%dN%d : sended excuted txs\n", rbhm.pbftNode.ShardID, rbhm.pbftNode.NodeID)
 		rbhm.pbftNode.CurChain.Txpool.GetLocked()
 		rbhm.pbftNode.writeCSVline([]string{strconv.Itoa(int(block.Header.Number)), strconv.Itoa(len(rbhm.pbftNode.CurChain.Txpool.TxQueue)), strconv.Itoa(bim.BlockBodyLength), strconv.Itoa(len(txExcuted)),
-			strconv.Itoa(len(bim.Broker1Txs)), strconv.Itoa(len(bim.Broker2Txs)), strconv.Itoa(len(bim.AllocatedTxs)), strconv.Itoa(bim.Bat_byte_Size), strconv.Itoa(bim.Block_byte_Size), strconv.FormatFloat(bim.Bat_byte_ratio, 'f', 6, 64), strconv.Itoa(int(bim.Relay1TxNum)), strconv.Itoa(int(bim.Relay2TxNum)), strconv.Itoa(len(innertxs)), strconv.Itoa(len(relayer_1_2_txs))})
+			strconv.Itoa(len(bim.Broker1Txs)), strconv.Itoa(len(bim.Broker2Txs)), strconv.Itoa(len(bim.AllocatedTxs)), strconv.Itoa(bim.Bat_byte_Size), strconv.Itoa(bim.Block_byte_Size), strconv.FormatFloat(bim.Bat_byte_ratio, 'f', 6, 64), strconv.Itoa(int(bim.Relay1TxNum)), strconv.Itoa(int(bim.Relay2TxNum)), strconv.Itoa(len(innertxs)), strconv.Itoa(len(relayer_1_2_txs)), strconv.Itoa(h)})
+
+		// write all tx rows for this block in one append operation
+		rbhm.pbftNode.writeCSV_txTime(txRows)
 		rbhm.pbftNode.CurChain.Txpool.GetUnlocked()
 	}
 	return true
