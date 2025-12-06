@@ -10,6 +10,7 @@ import (
 	"blockEmulator/supervisor/signal"
 	"blockEmulator/supervisor/supervisor_log"
 	"blockEmulator/utils"
+	"bufio"
 	"crypto/sha256"
 	"encoding/csv"
 	"encoding/json"
@@ -63,6 +64,74 @@ type BrokerCommitteeMod_b2e struct {
 	notHandleCtxByBroker      []int
 	len_alloctedBrokerRawMegs []int
 	BAT_size                  []float64
+
+	currentBlockHeight uint64            // 全局区块高度
+	shardBlockCount    map[uint64]uint64 // 每个分片的区块计数
+	receivedShards     map[uint64]bool   // 当前轮次中已收到区块的分片
+	blockHeightLock    sync.Mutex        // 保护区块高度的锁
+
+	// 新增：broker 动态管理相关
+	brokerAddressPool []string                  // 所有 broker 地址池
+	brokerEvents      map[uint64][]*BrokerEvent // epoch -> 事件列表
+
+	// 新增：broker 操作记录
+	brokerOperationLogPath string      // broker 操作日志文件路径
+	brokerOpLogFile        *os.File    // 日志文件句柄
+	brokerOpLogWriter      *csv.Writer // CSV writer
+	brokerOpLogLock        sync.Mutex  // 保护日志写入
+	// 区块记录相关
+	blockLogPath   string      // 区块日志文件路径
+	blockLogFile   *os.File    // 日志文件句柄
+	blockLogWriter *csv.Writer // CSV writer
+	blockLogLock   sync.Mutex  // 保护日志写入
+
+	// 新增：性能监控
+	lockWaitTime     []time.Duration // 记录每次获取锁的等待时间
+	blockProcessTime []time.Duration // 记录每次处理区块的时间
+	monitorLock      sync.Mutex
+
+	// ===== 新增：详细计时字段 =====
+	balanceUpdateTime []time.Duration
+	eventTime         []time.Duration
+	confirmTime       []time.Duration
+	checkTime         []time.Duration
+	exitCheckTime     []time.Duration
+	addResultTime     []time.Duration
+	recordBlockTime   []time.Duration
+	// ===============================
+
+	// ===== 新增: dealTxByBroker 详细计时 =====
+	dealTxTimings struct {
+		// 各阶段等锁时间
+		getBalanceLockWait      []time.Duration // GetActiveBrokerBalance 等锁
+		b2eCallLockWait         []time.Duration // B2E 调用前等锁
+		filterLockWait          []time.Duration // 过滤阶段等锁
+		lockTokenLockWait       []time.Duration // lockToken 等锁
+		handleAllocatedLockWait []time.Duration // handleAllocatedTx 等锁
+
+		// 各阶段执行时间
+		getBalanceExecTime      []time.Duration // 获取余额快照耗时
+		b2eCallExecTime         []time.Duration // B2E 算法执行耗时(已有,但重新记录)
+		filterExecTime          []time.Duration // 过滤操作耗时
+		lockTokenExecTime       []time.Duration // lockToken 执行耗时
+		generateBATExecTime     []time.Duration // GenerateAllocatedTx 耗时
+		handleAllocatedExecTime []time.Duration // handleAllocatedTx 耗时
+		handleRawMagExecTime    []time.Duration // handleBrokerRawMag 耗时
+
+		// 过滤统计
+		filteredCount     []int // 被过滤掉的交易数
+		lockTokenRejected []int // lockToken 中拒绝的交易数
+
+		// 并发情况
+		concurrentCalls []int // 同时进入 dealTxByBroker 的次数
+	}
+	dealTxTimingsLock sync.Mutex // 保护上述统计数据
+}
+
+// BrokerEvent broker 事件结构
+type BrokerEvent struct {
+	Operation     string // "join" or "exit"
+	BrokerIndices []int  // broker 索引列表
 }
 
 func NewBrokerCommitteeMod_b2e(Ip_nodeTable map[uint64]map[uint64]string, Ss *signal.StopSignal, sl *supervisor_log.SupervisorLog, csvFilePath string, dataNum, batchNum int) *BrokerCommitteeMod_b2e {
@@ -100,7 +169,15 @@ func NewBrokerCommitteeMod_b2e(Ip_nodeTable map[uint64]map[uint64]string, Ss *si
 		block_txs[uint64(i)] = append(block_txs[uint64(i)], "txExcuted, broker1Txs, broker2Txs, allocatedTxs")
 	}
 
-	return &BrokerCommitteeMod_b2e{
+	// 新增：初始化区块计数器
+	shardBlockCount := make(map[uint64]uint64)
+	receivedShards := make(map[uint64]bool)
+	for i := uint64(0); i < uint64(params.ShardNum); i++ {
+		shardBlockCount[i] = 0
+		receivedShards[i] = false
+	}
+
+	bcm := &BrokerCommitteeMod_b2e{
 		csvPath:              csvFilePath,
 		dataTotalNum:         dataNum,
 		batchDataNum:         batchNum,
@@ -127,7 +204,47 @@ func NewBrokerCommitteeMod_b2e(Ip_nodeTable map[uint64]map[uint64]string, Ss *si
 		notHandleCtxByBroker:      make([]int, 0),
 		len_alloctedBrokerRawMegs: make([]int, 0),
 		BAT_size:                  make([]float64, 0),
+		currentBlockHeight:        0,
+		shardBlockCount:           shardBlockCount,
+		receivedShards:            receivedShards,
+		brokerOperationLogPath:    params.DataWrite_path + "broker_operations.csv",
+		brokerEvents:              make(map[uint64][]*BrokerEvent),
+		blockLogPath:              params.DataWrite_path + "block_received_log.csv",
+		// 在最后添加（blockLogPath 初始化后面）
+		lockWaitTime:     make([]time.Duration, 0),
+		blockProcessTime: make([]time.Duration, 0),
 	}
+
+	// ===== 新增: 初始化 dealTxTimings =====
+	bcm.dealTxTimings.getBalanceLockWait = make([]time.Duration, 0)
+	bcm.dealTxTimings.b2eCallLockWait = make([]time.Duration, 0)
+	bcm.dealTxTimings.filterLockWait = make([]time.Duration, 0)
+	bcm.dealTxTimings.lockTokenLockWait = make([]time.Duration, 0)
+	bcm.dealTxTimings.handleAllocatedLockWait = make([]time.Duration, 0)
+
+	bcm.dealTxTimings.getBalanceExecTime = make([]time.Duration, 0)
+	bcm.dealTxTimings.b2eCallExecTime = make([]time.Duration, 0)
+	bcm.dealTxTimings.filterExecTime = make([]time.Duration, 0)
+	bcm.dealTxTimings.lockTokenExecTime = make([]time.Duration, 0)
+	bcm.dealTxTimings.generateBATExecTime = make([]time.Duration, 0)
+	bcm.dealTxTimings.handleAllocatedExecTime = make([]time.Duration, 0)
+	bcm.dealTxTimings.handleRawMagExecTime = make([]time.Duration, 0)
+
+	bcm.dealTxTimings.filteredCount = make([]int, 0)
+	bcm.dealTxTimings.lockTokenRejected = make([]int, 0)
+	bcm.dealTxTimings.concurrentCalls = make([]int, 0)
+
+	// 初始化区块日志
+	bcm.initBlockLog()
+	// 新增：读取所有 broker 地址到地址池
+	bcm.loadBrokerAddressPool()
+
+	// 新增：读取事件控制文件
+	bcm.loadBrokerEvents()
+
+	// 新增：初始化 broker 操作日志文件
+	bcm.initBrokerOperationLog()
+	return bcm
 
 }
 
@@ -139,8 +256,12 @@ func (bcm *BrokerCommitteeMod_b2e) fetchModifiedMap(key string) uint64 {
 
 func (bcm *BrokerCommitteeMod_b2e) txSending(txlist []*core.Transaction) {
 	// the txs will be sent
+
+	startTime := time.Now()
+
 	sendToShard := make(map[uint64][]*core.Transaction)
 
+	txNum := 0
 	for idx := 0; idx <= len(txlist); idx++ {
 		if idx > 0 && (idx%params.InjectSpeed == 0 || idx == len(txlist)) {
 			// send to shard
@@ -154,10 +275,11 @@ func (bcm *BrokerCommitteeMod_b2e) txSending(txlist []*core.Transaction) {
 					log.Panic(err)
 				}
 				send_msg := message.MergeMessage(message.CInject, itByte)
+				txNum += len(sendToShard[sid])
 				go networks.TcpDial(send_msg, bcm.IpNodeTable[sid][0])
 			}
 			sendToShard = make(map[uint64][]*core.Transaction)
-			time.Sleep(time.Second)
+			//time.Sleep(time.Second)
 		} //发送到源分片
 		if idx == len(txlist) {
 			break
@@ -170,6 +292,12 @@ func (bcm *BrokerCommitteeMod_b2e) txSending(txlist []*core.Transaction) {
 		}
 		sendToShard[sendersid] = append(sendToShard[sendersid], tx)
 	}
+	duration := time.Since(startTime)
+	if duration > 100*time.Millisecond {
+		fmt.Printf("[TxSending] 警告：发送%d笔交易耗时%v\n", len(txlist), duration)
+	}
+	fmt.Printf("Send %d tx\n", txNum)
+
 }
 
 func (bcm *BrokerCommitteeMod_b2e) MsgSendingControl() {
@@ -224,7 +352,7 @@ func (bcm *BrokerCommitteeMod_b2e) MsgSendingControl() {
 
 				time.Sleep(time.Second)
 				oldNum = len(bcm.restBrokerRawMegPool)
-				// if recoderNum >= 100 {
+				// if recoderNum >= 10 {
 				// 	break
 				// }
 			}
@@ -233,39 +361,188 @@ func (bcm *BrokerCommitteeMod_b2e) MsgSendingControl() {
 	}
 
 }
+func max[T uint64](a, b T) T {
+	if a > b {
+		return a
+	}
+	return b
+}
+func (bcm *BrokerCommitteeMod_b2e) saveMonitorStats() {
+	dirpath := params.DataWrite_path + "monitor/"
+	err := os.MkdirAll(dirpath, os.ModePerm)
+	if err != nil {
+		log.Printf("警告: 创建监控目录失败: %v", err)
+		return
+	}
 
+	targetPath := dirpath + "lock_wait_stats_detailed.csv"
+	file, err := os.Create(targetPath)
+	if err != nil {
+		log.Printf("警告: 创建监控文件失败: %v", err)
+		return
+	}
+	defer file.Close()
+
+	w := csv.NewWriter(file)
+	defer w.Flush()
+
+	// ===== 修改：包含所有详细字段 =====
+	w.Write([]string{
+		"Index",
+		"WaitTime(ms)",
+		"TotalProcessTime(ms)",
+		"BalanceUpdate(ms)",
+		"EventExec(ms)",
+		"CreateConfirm(ms)",
+		"CheckBroker(ms)",
+		"ExitCheck(ms)",
+		"AddResult(ms)",
+		"RecordBlock(ms)",
+	})
+
+	for i := 0; i < len(bcm.lockWaitTime); i++ {
+		w.Write([]string{
+			strconv.Itoa(i),
+			strconv.FormatFloat(float64(bcm.lockWaitTime[i].Microseconds())/1000.0, 'f', 3, 64),
+			strconv.FormatFloat(float64(bcm.blockProcessTime[i].Microseconds())/1000.0, 'f', 3, 64),
+			strconv.FormatFloat(float64(bcm.balanceUpdateTime[i].Microseconds())/1000.0, 'f', 3, 64),
+			strconv.FormatFloat(float64(bcm.eventTime[i].Microseconds())/1000.0, 'f', 3, 64),
+			strconv.FormatFloat(float64(bcm.confirmTime[i].Microseconds())/1000.0, 'f', 3, 64),
+			strconv.FormatFloat(float64(bcm.checkTime[i].Microseconds())/1000.0, 'f', 3, 64),
+			strconv.FormatFloat(float64(bcm.exitCheckTime[i].Microseconds())/1000.0, 'f', 3, 64),
+			strconv.FormatFloat(float64(bcm.addResultTime[i].Microseconds())/1000.0, 'f', 3, 64),
+			strconv.FormatFloat(float64(bcm.recordBlockTime[i].Microseconds())/1000.0, 'f', 3, 64),
+		})
+	}
+
+	fmt.Printf("[监控] 详细性能数据已保存到: %s\n", targetPath)
+}
 func (bcm *BrokerCommitteeMod_b2e) HandleBlockInfo(b *message.BlockInfoMsg) {
-	bcm.sl.Slog.Printf("received from shard %d in epoch %d.\n", b.SenderShardID, b.Epoch)
+	waitStart := time.Now()
+
+	bcm.sl.Slog.Printf("received from shard %d in height %d.\n", b.SenderShardID,
+		bcm.shardBlockCount[b.SenderShardID]+1)
+
+	bcm.shardBlockCount[b.SenderShardID]++
+
 	if b.BlockBodyLength == 0 {
 		return
 	}
 
-	// add createConfirm
 	txs := make([]*core.Transaction, 0)
 	txs = append(txs, b.Broker1Txs...)
 	txs = append(txs, b.Broker2Txs...)
-	bcm.brokerModuleLock.Lock()
-	// when accept ctx1, update all accounts
-	bcm.brokerBalanceLock.Lock()
-	println("block length is ", len(b.ExcutedTxs))
-	for _, tx := range b.Broker1Txs {
-		brokeraddress, sSid, rSid := tx.Recipient, bcm.fetchModifiedMap(tx.OriginalSender), bcm.fetchModifiedMap(tx.FinalRecipient)
 
+	bcm.brokerModuleLock.Lock()
+	waitTime := time.Since(waitStart)
+	bcm.brokerBalanceLock.Lock()
+	processStart := time.Now()
+
+	// ===== 计时点1 =====
+	t1 := time.Now()
+	// ===================
+
+	bcm.currentBlockHeight++
+	fmt.Printf("[BrokerHeight] 区块高度为 %d\n", bcm.currentBlockHeight)
+	println("block length is ", len(b.ExcutedTxs))
+	targetBroker := "32be343b94f860124dc4fee278fdcbd38c102d88"
+
+	for _, tx := range b.Broker1Txs {
+		if tx.Recipient == targetBroker {
+			rSid := bcm.fetchModifiedMap(tx.FinalRecipient)
+			fmt.Printf("[追踪-HandleBlock] 区块 %d, Broker %s 在分片 %d 释放 %s\n",
+				bcm.currentBlockHeight, targetBroker[:8], rSid, tx.Value.String())
+		}
+		brokeraddress, sSid, rSid := tx.Recipient, bcm.fetchModifiedMap(tx.OriginalSender), bcm.fetchModifiedMap(tx.FinalRecipient)
 		bcm.broker.LockBalance[brokeraddress][rSid].Sub(bcm.broker.LockBalance[brokeraddress][rSid], tx.Value)
 		bcm.broker.BrokerBalance[brokeraddress][sSid].Add(bcm.broker.BrokerBalance[brokeraddress][sSid], tx.Value)
-
 		fee := new(big.Float).SetInt64(tx.Fee.Int64())
-
 		fee = fee.Mul(fee, bcm.broker.Brokerage)
-
 		bcm.broker.ProfitBalance[brokeraddress][sSid].Add(bcm.broker.ProfitBalance[brokeraddress][sSid], fee)
-
 	}
-	bcm.add_result()
-	// bcm.SaveB2ETimeStats()
+
+	// ===== 计时点2 =====
+	balanceUpdateTime := time.Since(t1)
+	t2 := time.Now()
+	// ===================
+
+	bcm.executeBrokerEvents(bcm.currentBlockHeight)
+
+	// ===== 计时点3 =====
+	eventTime := time.Since(t2)
+	//t3 := time.Now()
+	// ===================
+
+	brokersBefore := make(map[string]bool)
+	for _, addr := range bcm.broker.BrokerAddress {
+		brokersBefore[addr] = true
+	}
+
 	bcm.brokerBalanceLock.Unlock()
 	bcm.brokerModuleLock.Unlock()
+	//unlockTime := time.Since(t3) // 记录解锁和准备工作的时间
+
+	// ===== 计时点4 =====
+	t4 := time.Now()
+	// ===================
+
 	bcm.createConfirm(txs)
+
+	// ===== 计时点5 =====
+	confirmTime := time.Since(t4)
+	t5 := time.Now()
+	// ===================
+
+	bcm.broker.CheckAndProcessUnboundingBrokers()
+
+	// ===== 计时点6 =====
+	checkTime := time.Since(t5)
+	t6 := time.Now()
+	// ===================
+
+	for addr := range brokersBefore {
+		if !bcm.broker.IsBroker(addr) {
+			brokerIndex := bcm.findBrokerIndex(addr)
+			shardNum := uint64(utils.Addr2Shard(addr))
+			shardHeight := bcm.shardBlockCount[shardNum]
+			bcm.recordBrokerOperation(shardNum, shardHeight, bcm.currentBlockHeight, "exit_complete", brokerIndex, addr)
+			fmt.Printf("[BrokerExit] 区块 %d: 地址 %s 完成退出\n", bcm.currentBlockHeight, addr)
+		}
+	}
+
+	// ===== 计时点7 =====
+	exitCheckTime := time.Since(t6)
+	t7 := time.Now()
+	// ===================
+
+	bcm.add_result()
+
+	// ===== 计时点8 =====
+	addResultTime := time.Since(t7)
+	t8 := time.Now()
+	// ===================
+
+	bcm.recordBlockInfo(b)
+
+	// ===== 计时点9 =====
+	recordBlockTime := time.Since(t8)
+	// ===================
+
+	processTime := time.Since(processStart)
+
+	// ===== 保存所有计时数据（不打印） =====
+	bcm.monitorLock.Lock()
+	bcm.lockWaitTime = append(bcm.lockWaitTime, waitTime)
+	bcm.blockProcessTime = append(bcm.blockProcessTime, processTime)
+	bcm.balanceUpdateTime = append(bcm.balanceUpdateTime, balanceUpdateTime)
+	bcm.eventTime = append(bcm.eventTime, eventTime)
+	bcm.confirmTime = append(bcm.confirmTime, confirmTime)
+	bcm.checkTime = append(bcm.checkTime, checkTime)
+	bcm.exitCheckTime = append(bcm.exitCheckTime, exitCheckTime)
+	bcm.addResultTime = append(bcm.addResultTime, addResultTime)
+	bcm.recordBlockTime = append(bcm.recordBlockTime, recordBlockTime)
+	bcm.monitorLock.Unlock()
+	// ========================================
 }
 
 func (bcm *BrokerCommitteeMod_b2e) createConfirm(txs []*core.Transaction) {
@@ -297,7 +574,8 @@ func (bcm *BrokerCommitteeMod_b2e) dealTxByBroker(txs []*core.Transaction) (itxs
 	bcm.txlen = append(bcm.txlen, len(txs))
 	bcm.rest_BrokerRawMegPoolLen = append(bcm.rest_BrokerRawMegPoolLen, len(bcm.restBrokerRawMegPool))
 
-	relay_txs := make([]*core.Transaction, 0)
+	relay_txs := make(map[uint64][]*core.Transaction)
+
 	brokerRecordMegs := make([]*message.BrokerRawMeg, 0)
 	//copy(brokerRawMegs, bcm.restBrokerRawMegPool)
 	for _, item := range bcm.restBrokerRawMegPool {
@@ -316,7 +594,7 @@ func (bcm *BrokerCommitteeMod_b2e) dealTxByBroker(txs []*core.Transaction) (itxs
 				count++
 				// relay tx
 				tx.IsRelay = true
-				relay_txs = append(relay_txs, tx)
+				relay_txs[sSid] = append(relay_txs[sSid], tx)
 				continue
 			}
 			brokerRawMeg := &message.BrokerRawMeg{
@@ -334,10 +612,25 @@ func (bcm *BrokerCommitteeMod_b2e) dealTxByBroker(txs []*core.Transaction) (itxs
 		}
 	}
 	bcm.notHandleCtxByBroker = append(bcm.notHandleCtxByBroker, count)
-	bcm.brokerBalanceLock.Lock()
 	println("len_brokerRecordMegs", len(brokerRecordMegs)) // record new injecting tx nums
 
-	bcm.txSending(relay_txs)
+	for shardID, txs := range relay_txs {
+		if len(txs) == 0 {
+			continue
+		}
+		relayTxs := message.InjectTxs{
+			Txs:       txs,
+			ToShardID: shardID,
+		}
+		itByte, err := json.Marshal(relayTxs)
+		if err != nil {
+			log.Printf("序列化错误: %v", err)
+			continue
+		}
+		send_msg := message.MergeMessage(message.CInject, itByte)
+		go networks.TcpDial(send_msg, bcm.IpNodeTable[shardID][0])
+	}
+
 	// // 新增：记录交易数量
 	// transactionCount := len(brokerRecordMegs)
 	// bcm.totalB2ETransactions += transactionCount
@@ -346,26 +639,129 @@ func (bcm *BrokerCommitteeMod_b2e) dealTxByBroker(txs []*core.Transaction) (itxs
 	// bcm.epochB2ETransactions = append(bcm.epochB2ETransactions, transactionCount)
 
 	// 新增：测量B2E函数执行时间
+	// 调用 B2E
+	// ===== 阶段1: 获取活跃 broker 余额 =====
+	lockWaitStart := time.Now()
+	bcm.brokerBalanceLock.Lock()
+	getBalanceLockWait := time.Since(lockWaitStart)
 
-	startTime := time.Now()
-	alloctedBrokerRawMegs, restBrokerRawMeg := Broker2Earn.B2E(brokerRawMegs, bcm.broker.BrokerBalance)
-	executionTime := time.Since(startTime)
+	execStart := time.Now()
+	activeBrokerBalance := bcm.broker.GetActiveBrokerBalance()
+	getBalanceExecTime := time.Since(execStart)
 
+	bcm.brokerBalanceLock.Unlock()
+
+	// 记录统计
+	bcm.recordDealTxTiming("getBalance", getBalanceLockWait, getBalanceExecTime, 0, 0)
+
+	// 统计可用余额
+	totalAvailable := big.NewInt(0)
+	brokerWithBalance := 0
+	for brokerAddr, shardBalances := range activeBrokerBalance {
+		brokerTotal := big.NewInt(0)
+		for _, balance := range shardBalances {
+			brokerTotal.Add(brokerTotal, balance)
+		}
+		totalAvailable.Add(totalAvailable, brokerTotal)
+		if brokerTotal.Cmp(big.NewInt(0)) > 0 {
+			brokerWithBalance++
+		}
+
+		// 打印前10个broker的余额情况
+		if brokerWithBalance < 10 {
+			fmt.Printf("[BrokerBalance] Broker %s: 总余额=%s\n",
+				brokerAddr, brokerTotal.String())
+		}
+	}
+
+	fmt.Printf("[B2E Stats] Active broker数: %d, 有余额的broker: %d, 总可用余额: %s\n",
+		len(activeBrokerBalance), brokerWithBalance, totalAvailable.String())
+
+	b2eStart := time.Now()
+	alloctedBrokerRawMegs, restBrokerRawMeg := Broker2Earn.B2E(brokerRawMegs, activeBrokerBalance)
+	b2eExecTime := time.Since(b2eStart)
+
+	bcm.recordDealTxTiming("b2e", 0, b2eExecTime, 0, 0)
+
+	fmt.Printf("[B2E Result] 成功分配: %d笔, 失败: %d笔\n",
+		len(alloctedBrokerRawMegs), len(restBrokerRawMeg))
+
+	// 在 B2E 调用后
+	if len(restBrokerRawMeg) > 0 {
+		fmt.Printf("[分析] B2E 未能分配 %d 笔交易，原因分析：\n", len(restBrokerRawMeg))
+
+		// 统计交易金额分布
+		smallTx := 0  // < 1000
+		mediumTx := 0 // 1000-10000
+		largeTx := 0  // > 10000
+
+		for _, msg := range restBrokerRawMeg {
+			value := msg.Tx.Value.Int64()
+			if value < 1000 {
+				smallTx++
+			} else if value < 10000 {
+				mediumTx++
+			} else {
+				largeTx++
+			}
+		}
+
+		fmt.Printf("  交易金额分布: 小额=%d, 中额=%d, 大额=%d\n", smallTx, mediumTx, largeTx)
+		fmt.Printf("  Active broker 总余额: %s\n", totalAvailable.String())
+
+		// 检查是否有 broker 余额足够
+		hasEnoughBalance := false
+		for _, shardBalances := range activeBrokerBalance {
+			brokerTotal := big.NewInt(0)
+			for _, balance := range shardBalances {
+				brokerTotal.Add(brokerTotal, balance)
+			}
+
+			if len(restBrokerRawMeg) > 0 && brokerTotal.Cmp(restBrokerRawMeg[0].Tx.Value) > 0 {
+				hasEnoughBalance = true
+				break
+			}
+		}
+
+		fmt.Printf("  至少一个 broker 余额足够: %v\n", hasEnoughBalance)
+	}
 	// 新增：保存执行时间
-	bcm.b2eExecutionTimes = append(bcm.b2eExecutionTimes, executionTime)
+	bcm.b2eExecutionTimes = append(bcm.b2eExecutionTimes, b2eExecTime)
 	bcm.totalB2EIterations++
-
-	fmt.Printf("New executionTime= %v\n", executionTime)
-	fmt.Println("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
 
 	//alloctedBrokerRawMegs, restBrokerRawMeg := Broker2Earn.B2E(brokerRawMegs, bcm.broker.BrokerBalance)
 	for _, item := range restBrokerRawMeg {
 		bcm.restBrokerRawMegPool = append(bcm.restBrokerRawMegPool, item)
 	}
 	println("len_alloctedBrokerRawMegs", len(alloctedBrokerRawMegs))
-	bcm.brokerBalanceLock.Unlock()
+	//bcm.brokerBalanceLock.Unlock()
+
+	// ===== 阶段3: 过滤 unbonding broker =====
+	filterStart := time.Now()
+	validAllocations := make([]*message.BrokerRawMeg, 0)
+	filteredCount := 0
+
+	for _, msg := range alloctedBrokerRawMegs {
+		if bcm.broker.IsUnbounding(msg.Broker) || !bcm.broker.IsBroker(msg.Broker) {
+			restBrokerRawMeg = append(restBrokerRawMeg, msg)
+			filteredCount++
+		} else {
+			validAllocations = append(validAllocations, msg)
+		}
+	}
+	alloctedBrokerRawMegs = validAllocations
+	filterExecTime := time.Since(filterStart)
+
+	bcm.recordDealTxTiming("filter", 0, filterExecTime, filteredCount, 0)
+	// ================================================
+
 	bcm.len_alloctedBrokerRawMegs = append(bcm.len_alloctedBrokerRawMegs, len(alloctedBrokerRawMegs))
+	// ===== 阶段4: GenerateAllocatedTx =====
+	genBATStart := time.Now()
 	allocatedTxs := bcm.GenerateAllocatedTx(alloctedBrokerRawMegs)
+	genBATExecTime := time.Since(genBATStart)
+
+	bcm.recordDealTxTiming("generateBAT", 0, genBATExecTime, 0, 0)
 	aByte, err := json.Marshal(allocatedTxs)
 	if err != nil {
 		log.Panic(err)
@@ -375,33 +771,130 @@ func (bcm *BrokerCommitteeMod_b2e) dealTxByBroker(txs []*core.Transaction) (itxs
 	bcm.BAT_size = append(bcm.BAT_size, batSize) // 计算得到了 BAT 大小（KB）
 
 	if len(alloctedBrokerRawMegs) != 0 {
+		// ===== 阶段5: handleAllocatedTx =====
+		handleAllocatedStart := time.Now()
 		bcm.handleAllocatedTx(allocatedTxs)
-		bcm.lockToken(alloctedBrokerRawMegs)
+		handleAllocatedExecTime := time.Since(handleAllocatedStart)
+		bcm.recordDealTxTiming("handleAllocated", 0, handleAllocatedExecTime, 0, 0)
+
+		// ===== 阶段6: lockToken =====
+		lockTokenStart := time.Now()
+		rejectedCount := bcm.lockToken(alloctedBrokerRawMegs) // 修改返回值
+		lockTokenExecTime := time.Since(lockTokenStart)
+		bcm.recordDealTxTiming("lockToken", 0, lockTokenExecTime, 0, rejectedCount)
+
+		// ===== 阶段7: handleBrokerRawMag =====
+		handleRawMagStart := time.Now()
 		bcm.handleBrokerRawMag(alloctedBrokerRawMegs)
+		handleRawMagExecTime := time.Since(handleRawMagStart)
+		bcm.recordDealTxTiming("handleRawMag", 0, handleRawMagExecTime, 0, 0)
 	}
 
-	bcm.SaveB2ETimeStats()
+	bcm.SaveB2ETimeStats(relay_txs, itxs)
 	return itxs
 }
 
-func (bcm *BrokerCommitteeMod_b2e) lockToken(alloctedBrokerRawMegs []*message.BrokerRawMeg) {
+func (bcm *BrokerCommitteeMod_b2e) lockToken(alloctedBrokerRawMegs []*message.BrokerRawMeg) int {
+	targetBroker := "32be343b94f860124dc4fee278fdcbd38c102d88"
+
+	// ===== 测量等锁时间 =====
+	lockWaitStart := time.Now()
 	bcm.brokerBalanceLock.Lock()
+	lockWaitDuration := time.Since(lockWaitStart)
+
+	// 记录等锁时间
+	bcm.dealTxTimingsLock.Lock()
+	bcm.dealTxTimings.lockTokenLockWait = append(bcm.dealTxTimings.lockTokenLockWait, lockWaitDuration)
+	bcm.dealTxTimingsLock.Unlock()
+
+	rejectedCount := 0
+	rejectedBrokers := make(map[string]int)
 
 	for _, brokerRawMeg := range alloctedBrokerRawMegs {
 		tx := brokerRawMeg.Tx
 		brokerAddress := brokerRawMeg.Broker
+
+		if bcm.broker.IsUnbounding(brokerAddress) {
+			bcm.restBrokerRawMegPool = append(bcm.restBrokerRawMegPool, brokerRawMeg)
+			rejectedCount++
+			rejectedBrokers[brokerAddress]++
+			continue
+		}
+
 		rSid := bcm.fetchModifiedMap(tx.Recipient)
+
+		// ===== 在实际锁定前打印 =====
+		if brokerAddress == targetBroker {
+			fmt.Printf("[追踪-LockToken] Broker %s 在分片 %d 锁定 %s\n",
+				targetBroker[:8], rSid, brokerRawMeg.Tx.Value.String())
+		}
+
 		bcm.broker.LockBalance[brokerAddress][rSid].Add(bcm.broker.LockBalance[brokerAddress][rSid], tx.Value)
 		bcm.broker.BrokerBalance[brokerAddress][rSid].Sub(bcm.broker.BrokerBalance[brokerAddress][rSid], tx.Value)
 	}
 
-	bcm.brokerBalanceLock.Unlock()
-}
-func (bcm *BrokerCommitteeMod_b2e) handleAllocatedTx(alloctedTx map[uint64][]*core.Transaction) {
+	if rejectedCount > 0 {
+		fmt.Printf("[LockToken] 拒绝了 %d 笔交易，涉及 unbonding broker: %v\n",
+			rejectedCount, rejectedBrokers)
+	}
 
+	bcm.brokerBalanceLock.Unlock()
+	return rejectedCount // ===== 返回拒绝数量 =====
+}
+
+//	func (bcm *BrokerCommitteeMod_b2e) lockToken(alloctedBrokerRawMegs []*message.BrokerRawMeg) {
+//		targetBroker := "32be343b94f860124dc4fee278fdcbd38c102d88"
+//
+//		bcm.brokerBalanceLock.Lock()
+//
+//		rejectedCount := 0
+//		rejectedBrokers := make(map[string]int)
+//		for _, brokerRawMeg := range alloctedBrokerRawMegs {
+//
+//			tx := brokerRawMeg.Tx
+//			brokerAddress := brokerRawMeg.Broker
+//			// if broker is unbonding, cancel BAT
+//			if bcm.broker.IsUnbounding(brokerAddress) {
+//				bcm.restBrokerRawMegPool = append(bcm.restBrokerRawMegPool, brokerRawMeg)
+//				rejectedCount++
+//				rejectedBrokers[brokerAddress]++
+//				continue
+//			}
+//			rSid := bcm.fetchModifiedMap(tx.Recipient)
+//
+//			fmt.Printf("[追踪-LockToken] Broker %s 在分片 %d 锁定 %s\n",
+//				targetBroker[:8], rSid, brokerRawMeg.Tx.Value.String())
+//			bcm.broker.LockBalance[brokerAddress][rSid].Add(bcm.broker.LockBalance[brokerAddress][rSid], tx.Value)
+//			bcm.broker.BrokerBalance[brokerAddress][rSid].Sub(bcm.broker.BrokerBalance[brokerAddress][rSid], tx.Value)
+//		}
+//		if rejectedCount > 0 {
+//			fmt.Printf("[LockToken] 拒绝了 %d 笔交易，涉及 unbonding broker: %v\n",
+//				rejectedCount, rejectedBrokers)
+//		}
+//		bcm.brokerBalanceLock.Unlock()
+//	}
+func (bcm *BrokerCommitteeMod_b2e) handleAllocatedTx(alloctedTx map[uint64][]*core.Transaction) {
+	// ===== 测量等锁时间 =====
+	lockWaitStart := time.Now()
 	bcm.brokerBalanceLock.Lock()
+	lockWaitDuration := time.Since(lockWaitStart)
+
+	// 记录等锁时间
+	bcm.dealTxTimingsLock.Lock()
+	bcm.dealTxTimings.handleAllocatedLockWait = append(bcm.dealTxTimings.handleAllocatedLockWait, lockWaitDuration)
+	bcm.dealTxTimingsLock.Unlock()
+
 	for shardId, txs := range alloctedTx {
 		for _, tx := range txs {
+
+			// judge whether BATs
+			if tx.Sender != tx.Recipient && !tx.IsAllocatedSender && !tx.IsAllocatedRecipent {
+				continue
+			}
+			// if broker is unbonding, cancel BAT
+			if bcm.broker.IsUnbounding(tx.Sender) {
+				continue
+			}
 			if tx.IsAllocatedSender {
 				bcm.broker.BrokerBalance[tx.Sender][shardId].Sub(bcm.broker.BrokerBalance[tx.Sender][shardId], tx.Value)
 			}
@@ -420,7 +913,7 @@ func (bcm *BrokerCommitteeMod_b2e) handleAllocatedTx(alloctedTx map[uint64][]*co
 		}
 		send_msg := message.MergeMessage(message.CInjectHead, itByte)
 		go networks.TcpDial(send_msg, bcm.IpNodeTable[shardId][0])
-		time.Sleep(time.Second)
+		//time.Sleep(time.Second)
 	}
 	bcm.brokerBalanceLock.Unlock()
 }
@@ -527,7 +1020,7 @@ func (bcm *BrokerCommitteeMod_b2e) GenerateAllocatedTx(alloctedBrokerRawMegs []*
 }
 
 func (bcm *BrokerCommitteeMod_b2e) handleBrokerType1Mes(brokerType1Megs []*message.BrokerType1Meg) {
-	tx1s := make([]*core.Transaction, 0)
+	tx1s := make(map[uint64][]*core.Transaction, 0)
 	for _, brokerType1Meg := range brokerType1Megs {
 		ctx := brokerType1Meg.RawMeg.Tx
 		tx1 := core.NewTransaction(ctx.Sender, brokerType1Meg.Broker, ctx.Value, ctx.Nonce, ctx.Fee)
@@ -535,7 +1028,8 @@ func (bcm *BrokerCommitteeMod_b2e) handleBrokerType1Mes(brokerType1Megs []*messa
 		tx1.FinalRecipient = ctx.Recipient
 		tx1.RawTxHash = make([]byte, len(ctx.TxHash))
 		copy(tx1.RawTxHash, ctx.TxHash)
-		tx1s = append(tx1s, tx1)
+		ssid := uint64(utils.Addr2Shard(ctx.Sender))
+		tx1s[ssid] = append(tx1s[ssid], tx1)
 		confirm1 := &message.Mag1Confirm{
 			RawMeg:  brokerType1Meg.RawMeg,
 			Tx1Hash: tx1.TxHash,
@@ -544,12 +1038,25 @@ func (bcm *BrokerCommitteeMod_b2e) handleBrokerType1Mes(brokerType1Megs []*messa
 		bcm.brokerConfirm1Pool[string(tx1.TxHash)] = confirm1
 		bcm.brokerModuleLock.Unlock()
 	}
-	bcm.txSending(tx1s)
+
+	for shardId, txs := range tx1s {
+
+		it := message.InjectTxs{
+			Txs:       txs,
+			ToShardID: shardId,
+		}
+		itByte, err := json.Marshal(it)
+		if err != nil {
+			log.Panic(err)
+		}
+		send_msg := message.MergeMessage(message.CInjectHead, itByte)
+		go networks.TcpDial(send_msg, bcm.IpNodeTable[shardId][0])
+	}
 	fmt.Println("BrokerType1Mes received by shard,  add brokerTx1 len ", len(tx1s))
 }
 
 func (bcm *BrokerCommitteeMod_b2e) handleBrokerType2Mes(brokerType2Megs []*message.BrokerType2Meg) {
-	tx2s := make([]*core.Transaction, 0)
+	tx2s := make(map[uint64][]*core.Transaction, 0)
 	for _, mes := range brokerType2Megs {
 		ctx := mes.RawMeg.Tx
 		tx2 := core.NewTransaction(mes.Broker, ctx.Recipient, ctx.Value, ctx.Nonce, ctx.Fee)
@@ -557,21 +1064,37 @@ func (bcm *BrokerCommitteeMod_b2e) handleBrokerType2Mes(brokerType2Megs []*messa
 		tx2.FinalRecipient = ctx.Recipient
 		tx2.RawTxHash = make([]byte, len(ctx.TxHash))
 		copy(tx2.RawTxHash, ctx.TxHash)
-		tx2s = append(tx2s, tx2)
+
+		rsid := uint64(utils.Addr2Shard(ctx.Recipient))
+		tx2s[rsid] = append(tx2s[rsid], tx2)
 
 		confirm2 := &message.Mag2Confirm{
 			RawMeg:  mes.RawMeg,
 			Tx2Hash: tx2.TxHash,
 		}
-		bcm.brokerModuleLock.Lock()
+		//bcm.brokerModuleLock.Lock()
 		bcm.brokerConfirm2Pool[string(tx2.TxHash)] = confirm2
-		bcm.brokerModuleLock.Unlock()
+		//bcm.brokerModuleLock.Unlock()
 	}
-	bcm.txSending(tx2s)
+
+	for shardId, txs := range tx2s {
+
+		it := message.InjectTxs{
+			Txs:       txs,
+			ToShardID: shardId,
+		}
+		itByte, err := json.Marshal(it)
+		if err != nil {
+			log.Panic(err)
+		}
+		send_msg := message.MergeMessage(message.CInjectHead, itByte)
+		go networks.TcpDial(send_msg, bcm.IpNodeTable[shardId][0])
+	}
+	//go bcm.txSending(tx2s)
 	fmt.Println("broker tx2 add to pool len ", len(tx2s))
 }
 
-// get the digest of rawMeg
+// to get the digest of rawMeg
 func (bcm *BrokerCommitteeMod_b2e) getBrokerRawMagDigest(r *message.BrokerRawMeg) []byte {
 	b, err := json.Marshal(r)
 	if err != nil {
@@ -587,6 +1110,12 @@ func (bcm *BrokerCommitteeMod_b2e) handleBrokerRawMag(brokerRawMags []*message.B
 	fmt.Println("broker receive ctx ", len(brokerRawMags))
 	bcm.brokerModuleLock.Lock()
 	for _, meg := range brokerRawMags {
+
+		// if broker is unbonding, cancel broker1Txs
+		brokerAddress := meg.Broker
+		if bcm.broker.IsUnbounding(brokerAddress) {
+			continue
+		}
 		b.BrokerRawMegs[string(bcm.getBrokerRawMagDigest(meg))] = meg
 		brokerType1Mag := &message.BrokerType1Meg{
 			RawMeg:   meg,
@@ -654,10 +1183,11 @@ func (bcm *BrokerCommitteeMod_b2e) add_result() {
 		a := ""
 		b := ""
 		c := ""
-		for shardId, balance := range shardMap {
-			a += balance.String() + ","
-			b += bcm.broker.LockBalance[brokerAddress][shardId].String() + ","
-			c += bcm.broker.ProfitBalance[brokerAddress][shardId].String() + ","
+		//for shardId, balance := range shardMap {
+		for sid := uint64(0); sid < uint64(params.ShardNum); sid++ {
+			a += shardMap[sid].String() + ","
+			b += bcm.broker.LockBalance[brokerAddress][sid].String() + ","
+			c += bcm.broker.ProfitBalance[brokerAddress][sid].String() + ","
 		}
 		a += "\n"
 		b += "\n"
@@ -667,15 +1197,28 @@ func (bcm *BrokerCommitteeMod_b2e) add_result() {
 		bcm.Result_Profit[brokerAddress] = append(bcm.Result_Profit[brokerAddress], c)
 
 		// 实时写入到文件 - 只写入最新的一行数据
-		targetPath0 := dirpath + brokerAddress + "_lockBalance.csv"
-		targetPath1 := dirpath + brokerAddress + "_brokerBalance.csv"
-		targetPath2 := dirpath + brokerAddress + "_Profit.csv"
+		//targetPath0 := dirpath + brokerAddress + "_lockBalance.csv"
+		//targetPath1 := dirpath + brokerAddress + "_brokerBalance.csv"
+		//targetPath2 := dirpath + brokerAddress + "_Profit.csv"
 
 		// 直接写入最新的行，而不是整个数组
-		bcm.writeLatestRow(targetPath0, []string{b})
-		bcm.writeLatestRow(targetPath1, []string{a})
-		bcm.writeLatestRow(targetPath2, []string{c})
+		//bcm.writeLatestRow(targetPath0, []string{b})
+		//bcm.writeLatestRow(targetPath1, []string{a})
+		//bcm.writeLatestRow(targetPath2, []string{c})
 	}
+
+	// 新增：关闭 broker 操作日志文件
+	//if bcm.brokerOpLogWriter != nil {
+	//	bcm.brokerOpLogWriter.Flush()
+	//}
+	//if bcm.brokerOpLogFile != nil {
+	//	bcm.brokerOpLogFile.Close()
+	//	fmt.Printf("[BrokerLog] 操作日志文件已关闭\n")
+	//}
+
+	// ===== 新增：保存监控数据 =====
+	bcm.saveMonitorStats()
+	// =============================
 }
 
 // 新增方法：只写入最新的一行数据
@@ -726,7 +1269,7 @@ func (bcm *BrokerCommitteeMod_b2e) writeLatestRow(targetPath string, latestRows 
 }
 
 // 新增：保存B2E时间统计数据到CSV文件
-func (bcm *BrokerCommitteeMod_b2e) SaveB2ETimeStats() {
+func (bcm *BrokerCommitteeMod_b2e) SaveB2ETimeStats(relay_txs map[uint64][]*core.Transaction, itxs []*core.Transaction) {
 	if len(bcm.b2eExecutionTimes) == 0 {
 		fmt.Println("no data here #####")
 		return // 没有统计数据，直接返回
@@ -761,7 +1304,7 @@ func (bcm *BrokerCommitteeMod_b2e) SaveB2ETimeStats() {
 			log.Panic(err)
 		}
 		w := csv.NewWriter(file)
-		w.Write([]string{"Iteration", "ExecutionTime(ms)", "epoch_tx_injected", "rest_BrokerRawMegPoolLen", "notHandleCtxByBroker", "len_alloctedBrokerRawMegs"})
+		w.Write([]string{"Iteration", "ExecutionTime(ms)", "epoch_tx_injected", "rest_BrokerRawMegPoolLen", "notHandleCtxByBroker", "len_alloctedBrokerRawMegs", "relayTxnum", "itxNum"})
 		w.Flush()
 	} else {
 		file, err = os.OpenFile(targetPath, os.O_APPEND|os.O_WRONLY, 0666)
@@ -776,6 +1319,11 @@ func (bcm *BrokerCommitteeMod_b2e) SaveB2ETimeStats() {
 	latestTime := bcm.b2eExecutionTimes[len(bcm.b2eExecutionTimes)-1]
 	iteration := bcm.totalB2EIterations
 
+	legthOfRelayTx := 0
+	for _, s := range relay_txs {
+		legthOfRelayTx += len(s)
+	}
+
 	row := []string{
 		strconv.Itoa(iteration),
 		strconv.FormatFloat(float64(latestTime.Microseconds())/1000.0, 'f', 6, 64),
@@ -783,6 +1331,8 @@ func (bcm *BrokerCommitteeMod_b2e) SaveB2ETimeStats() {
 		strconv.Itoa(bcm.rest_BrokerRawMegPoolLen[iteration-1]),
 		strconv.Itoa(bcm.notHandleCtxByBroker[iteration-1]),
 		strconv.Itoa(bcm.len_alloctedBrokerRawMegs[iteration-1]),
+		strconv.Itoa(legthOfRelayTx),
+		strconv.Itoa(len(itxs)),
 	}
 
 	w.Write(row)
@@ -840,7 +1390,19 @@ func (bcm *BrokerCommitteeMod_b2e) Result_save() {
 		bcm.Wirte_result(targetPath2, bcm.Result_Profit[brokerAddress])
 	}
 	// bcm.SaveB2ETimeStats()
+	// 新增：关闭 broker 操作日志文件
+	//if bcm.brokerOpLogWriter != nil {
+	//	bcm.brokerOpLogWriter.Flush()
+	//}
+	//if bcm.brokerOpLogFile != nil {
+	//	bcm.brokerOpLogFile.Close()
+	//	fmt.Printf("[BrokerLog] 操作日志文件已关闭\n")
+	//}
+	bcm.saveMonitorStats()
+	// ===== 新增: 保存 dealTxByBroker 详细计时 =====
+	bcm.SaveDealTxTimings()
 }
+
 func (bcm *BrokerCommitteeMod_b2e) Wirte_result(targetPath string, resultStr []string) {
 
 	f, err := os.Open(targetPath)
@@ -892,4 +1454,509 @@ func (bcm *BrokerCommitteeMod_b2e) Wirte_result(targetPath string, resultStr []s
 		// writer.Flush()
 	}
 	f.Close()
+}
+
+// checkAndRemoveBrokers 检查并移除可以退出的 broker
+func (bcm *BrokerCommitteeMod_b2e) checkAndRemoveBrokers() {
+	// 调用 broker 的检查函数（传入当前区块高度）
+	bcm.broker.CheckAndProcessUnboundingBrokers()
+}
+
+// TriggerBrokerExit 触发 broker 退出流程
+func (bcm *BrokerCommitteeMod_b2e) TriggerBrokerExit(brokerAddress string) error {
+	bcm.blockHeightLock.Lock()
+	currentHeight := bcm.currentBlockHeight
+	bcm.blockHeightLock.Unlock()
+
+	// 触发 broker 退出
+	err := bcm.broker.InitiateUnbounding(brokerAddress)
+	if err != nil {
+		return fmt.Errorf("触发退出失败: %v", err)
+	}
+
+	fmt.Printf("[Supervisor] Broker %s 在区块 %d 开始退出流程\n", brokerAddress, currentHeight)
+	return nil
+}
+
+// GetCurrentBlockHeight 获取当前全局区块高度
+func (bcm *BrokerCommitteeMod_b2e) GetCurrentBlockHeight() uint64 {
+	bcm.blockHeightLock.Lock()
+	defer bcm.blockHeightLock.Unlock()
+	return bcm.currentBlockHeight
+}
+
+// loadBrokerAddressPool 读取所有 broker 地址到地址池
+func (bcm *BrokerCommitteeMod_b2e) loadBrokerAddressPool() {
+	filePath := `./broker/broker`
+	readFile, err := os.Open(filePath)
+	if err != nil {
+		log.Printf("警告: 无法打开 broker 地址文件: %v", err)
+		return
+	}
+	defer readFile.Close()
+
+	bcm.brokerAddressPool = make([]string, 0)
+	fileScanner := bufio.NewScanner(readFile)
+	fileScanner.Split(bufio.ScanLines)
+
+	for fileScanner.Scan() {
+		address := strings.TrimSpace(fileScanner.Text())
+		if address != "" {
+			bcm.brokerAddressPool = append(bcm.brokerAddressPool, address)
+		}
+	}
+
+	fmt.Printf("[BrokerPool] 成功加载 %d 个 broker 地址\n", len(bcm.brokerAddressPool))
+}
+
+// loadBrokerEvents 读取 broker 事件控制文件
+func (bcm *BrokerCommitteeMod_b2e) loadBrokerEvents() {
+	filePath := `./broker/broker_events.csv`
+	file, err := os.Open(filePath)
+	if err != nil {
+		log.Printf("警告: 无法打开事件文件: %v，将不会有动态 broker 加入/退出", err)
+		return
+	}
+	defer file.Close()
+
+	reader := csv.NewReader(file)
+
+	// 跳过表头
+	_, err = reader.Read()
+	if err != nil {
+		log.Printf("警告: 读取事件文件表头失败: %v", err)
+		return
+	}
+
+	eventCount := 0
+	for {
+		record, err := reader.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			log.Printf("警告: 读取事件文件行失败: %v", err)
+			continue
+		}
+
+		// 解析：block_height, operation, broker_indices
+		if len(record) < 3 {
+			log.Printf("警告: 事件文件格式错误，跳过该行: %v", record)
+			continue
+		}
+
+		blockHeight, err := strconv.ParseUint(record[0], 10, 64)
+		if err != nil {
+			log.Printf("警告: 无效的区块高度: %s", record[0])
+			continue
+		}
+
+		operation := strings.TrimSpace(record[1])
+		if operation != "join" && operation != "exit" {
+			log.Printf("警告: 无效的操作类型: %s", operation)
+			continue
+		}
+
+		// 解析索引列表（逗号分隔）
+		indicesStr := strings.TrimSpace(record[2])
+		indices := make([]int, 0)
+		for _, indexStr := range strings.Split(indicesStr, ",") {
+			indexStr = strings.TrimSpace(indexStr)
+			if indexStr == "" {
+				continue
+			}
+			index, err := strconv.Atoi(indexStr)
+			if err != nil {
+				log.Printf("警告: 无效的索引: %s", indexStr)
+				continue
+			}
+			indices = append(indices, index)
+		}
+
+		if len(indices) == 0 {
+			log.Printf("警告: 事件没有有效的 broker 索引")
+			continue
+		}
+
+		// 创建事件
+		event := &BrokerEvent{
+			Operation:     operation,
+			BrokerIndices: indices,
+		}
+
+		log.Printf("第%d区块,操作为 %s\n", blockHeight, operation)
+		// 添加到对应 epoch 的事件列表
+		bcm.brokerEvents[blockHeight] = append(bcm.brokerEvents[blockHeight], event)
+		eventCount++
+	}
+	// 不加载
+	//bcm.brokerEvents = make(map[uint64][]*BrokerEvent)
+	fmt.Printf("[BrokerEvents] 成功加载 %d 个事件，涉及 %d 个区块\n", eventCount, len(bcm.brokerEvents))
+}
+
+// 执行指定区块高度的所有事件
+func (bcm *BrokerCommitteeMod_b2e) executeBrokerEvents(blockHeight uint64) {
+	events, exists := bcm.brokerEvents[blockHeight]
+	if !exists || len(events) == 0 {
+		return // 该区块没有事件
+	}
+
+	fmt.Printf("[BrokerEvents] 区块 %d: 开始执行 %d 个事件\n", blockHeight, len(events))
+
+	for _, event := range events {
+		switch event.Operation {
+		case "join":
+			bcm.executeBrokerJoin(event, blockHeight)
+		case "exit":
+			bcm.executeBrokerExit(event, blockHeight)
+		default:
+			fmt.Printf("[BrokerEvents] 未知操作类型: %s\n", event.Operation)
+		}
+	}
+}
+
+// 执行 broker 加入操作
+func (bcm *BrokerCommitteeMod_b2e) executeBrokerJoin(event *BrokerEvent, blockHeight uint64) {
+	successCount := 0
+
+	// 使用默认初始余额
+	initialBalance := params.Init_broker_Balance
+
+	for _, index := range event.BrokerIndices {
+		// 检查索引是否有效
+		if index < 0 || index >= len(bcm.brokerAddressPool) {
+			fmt.Printf("[BrokerJoin] 警告: 索引 %d 超出地址池范围 (0-%d)\n",
+				index, len(bcm.brokerAddressPool)-1)
+			continue
+		}
+
+		address := bcm.brokerAddressPool[index]
+
+		// 调用 AddBroker
+		err := bcm.broker.AddBroker(address, initialBalance)
+		if err != nil {
+			fmt.Printf("[BrokerJoin] 警告: 索引 %d 地址 %s 加入失败: %v\n",
+				index, address, err)
+			continue
+		}
+
+		// 新增：记录加入操作
+		shardNum := uint64(utils.Addr2Shard(address))
+		shardHeight := bcm.shardBlockCount[shardNum]
+
+		bcm.recordBrokerOperation(shardNum, shardHeight, blockHeight, "join", index, address)
+
+		successCount++
+		fmt.Printf("[BrokerJoin] 区块 %d: 索引 %d 地址 %s 成功加入\n",
+			blockHeight, index, address)
+	}
+
+	fmt.Printf("[BrokerJoin] 区块 %d: 成功加入 %d/%d 个 broker，当前活跃: %d\n",
+		blockHeight, successCount, len(event.BrokerIndices),
+		bcm.broker.GetActiveBrokerCount())
+}
+
+// executeBrokerExit 执行 broker 退出操作
+func (bcm *BrokerCommitteeMod_b2e) executeBrokerExit(event *BrokerEvent, blockHeight uint64) {
+	successCount := 0
+
+	for _, index := range event.BrokerIndices {
+		// 检查索引是否有效
+		if index < 0 || index >= len(bcm.brokerAddressPool) {
+			fmt.Printf("[BrokerExit] 警告: 索引 %d 超出地址池范围 (0-%d)\n",
+				index, len(bcm.brokerAddressPool)-1)
+			continue
+		}
+
+		address := bcm.brokerAddressPool[index]
+
+		// 检查该 broker 是否在系统中
+		if !bcm.broker.IsBroker(address) {
+			fmt.Printf("[BrokerExit] 警告: 索引 %d 地址 %s 不在系统中\n",
+				index, address)
+			continue
+		}
+
+		// 调用 InitiateUnbounding
+		err := bcm.broker.InitiateUnbounding(address)
+		if err != nil {
+			fmt.Printf("[BrokerExit] 警告: 索引 %d 地址 %s 退出失败: %v\n",
+				index, address, err)
+			continue
+		}
+		shardNum := uint64(utils.Addr2Shard(address))
+		shardHeight := bcm.shardBlockCount[shardNum]
+
+		// 新增：记录发起退出操作
+		bcm.recordBrokerOperation(shardNum, shardHeight, blockHeight, "exit_start", index, address)
+
+		successCount++
+		fmt.Printf("[BrokerExit] 区块 %d: 索引 %d 地址 %s 开始退出流程\n",
+			blockHeight, index, address)
+	}
+
+	fmt.Printf("[BrokerExit] 区块 %d: 成功触发 %d/%d 个 broker 退出，当前活跃: %d\n",
+		blockHeight, successCount, len(event.BrokerIndices),
+		bcm.broker.GetActiveBrokerCount())
+}
+
+// initBrokerOperationLog 初始化 broker 操作日志文件
+func (bcm *BrokerCommitteeMod_b2e) initBrokerOperationLog() {
+	// 创建目录
+	dirpath := params.DataWrite_path
+	err := os.MkdirAll(dirpath, os.ModePerm)
+	if err != nil {
+		log.Printf("警告: 创建日志目录失败: %v", err)
+		return
+	}
+
+	// 创建或打开文件
+	file, err := os.Create(bcm.brokerOperationLogPath)
+	if err != nil {
+		log.Printf("警告: 创建 broker 操作日志文件失败: %v", err)
+		return
+	}
+
+	bcm.brokerOpLogFile = file
+	bcm.brokerOpLogWriter = csv.NewWriter(file)
+
+	// 写入表头
+	header := []string{"block_height", "ShardID", "ShardHeight", "operation", "broker_index", "broker_address", "timestamp"}
+	bcm.brokerOpLogWriter.Write(header)
+	bcm.brokerOpLogWriter.Flush()
+	file.Sync()
+
+	fmt.Printf("[BrokerLog] 操作日志文件创建: %s\n", bcm.brokerOperationLogPath)
+}
+
+// 记录 broker 操作到 CSV（实时写入）
+func (bcm *BrokerCommitteeMod_b2e) recordBrokerOperation(shardNum uint64, shardHeight uint64, blockHeight uint64, operation string, brokerIndex int, brokerAddress string) {
+	// ===== 新增：调试日志 =====
+	//fmt.Printf("[调试-记录函数] 被调用: 区块=%d, 操作=%s, 地址=%s\n",
+	//	blockHeight, operation, brokerAddress)
+	// ==========================
+
+	if bcm.brokerOpLogWriter == nil {
+		// ===== 新增：警告日志 =====
+		//fmt.Printf("[错误-记录函数] brokerOpLogWriter 为 nil，无法记录！\n")
+		// ==========================
+		return
+	}
+
+	bcm.brokerOpLogLock.Lock()
+	defer bcm.brokerOpLogLock.Unlock()
+
+	timestamp := time.Now().UnixMilli()
+
+	row := []string{
+		strconv.FormatUint(blockHeight, 10),
+		strconv.FormatUint(shardNum, 10),
+		strconv.FormatUint(shardHeight, 10),
+		operation,
+		strconv.Itoa(brokerIndex),
+		brokerAddress,
+		strconv.FormatInt(timestamp, 10),
+	}
+
+	// ===== 修改：检查错误 =====
+	err := bcm.brokerOpLogWriter.Write(row)
+	if err != nil {
+		fmt.Printf("[错误-记录函数] 写入失败: %v\n", err)
+		return
+	}
+
+	bcm.brokerOpLogWriter.Flush()
+
+	err = bcm.brokerOpLogFile.Sync()
+	if err != nil {
+		fmt.Printf("[错误-记录函数] Sync失败: %v\n", err)
+	} else {
+		fmt.Printf("[成功-记录函数] 已记录: 区块=%d, 操作=%s\n", blockHeight, operation)
+	}
+	// ==========================
+}
+
+// findBrokerIndex 在地址池中查找 broker 的索引
+func (bcm *BrokerCommitteeMod_b2e) findBrokerIndex(address string) int {
+	for i, addr := range bcm.brokerAddressPool {
+		if addr == address {
+			return i
+		}
+	}
+	return -1 // 未找到
+}
+
+// 初始化区块日志文件
+func (bcm *BrokerCommitteeMod_b2e) initBlockLog() {
+	// 创建目录
+	dirpath := params.DataWrite_path
+	err := os.MkdirAll(dirpath, os.ModePerm)
+	if err != nil {
+		log.Printf("警告: 创建区块日志目录失败: %v", err)
+		return
+	}
+
+	// 创建或打开文件
+	file, err := os.Create(bcm.blockLogPath)
+	if err != nil {
+		log.Printf("警告: 创建区块日志文件失败: %v", err)
+		return
+	}
+
+	bcm.blockLogFile = file
+	bcm.blockLogWriter = csv.NewWriter(file)
+
+	// 写入表头
+	header := []string{
+		"global_block_height", // 全局区块高度
+		"shard_id",            // 分片ID
+		"shard_block_height",  // 该分片的区块高度
+		"ExcutedTxs",          // 总交易数
+		"Broker1Txs",          // 执行的交易数
+		"Broker2Txs",          // broker1交易数
+		"Relay1Txs",           // broker2交易数
+		"Relay2TxNum",         // broker2交易数
+		"AllocatedTxs",        // 跨片交易数（如果有）
+		"timestamp",           // 时间戳
+	}
+
+	bcm.blockLogWriter.Write(header)
+	bcm.blockLogWriter.Flush()
+	file.Sync()
+
+	fmt.Printf("[BlockLog] 区块日志文件创建: %s\n", bcm.blockLogPath)
+}
+func (bcm *BrokerCommitteeMod_b2e) recordBlockInfo(blockMsg *message.BlockInfoMsg) {
+	if bcm.blockLogWriter == nil {
+		return // 日志文件未初始化
+	}
+
+	bcm.blockLogLock.Lock()
+	defer bcm.blockLogLock.Unlock()
+	// 获取时间戳
+	timestamp := time.Now().UnixMilli()
+
+	// 构建CSV行
+	row := []string{
+		strconv.FormatUint(bcm.currentBlockHeight, 10),                      // 全局高度
+		strconv.FormatUint(uint64(blockMsg.SenderShardID), 10),              // 分片ID
+		strconv.FormatUint(bcm.shardBlockCount[blockMsg.SenderShardID], 10), // 分片高度
+		strconv.Itoa(len(blockMsg.ExcutedTxs)),                              // 总交易数
+		strconv.Itoa(len(blockMsg.Broker1Txs)),                              // 执行的交易数
+		strconv.Itoa(len(blockMsg.Broker2Txs)),                              // 执行的交易数
+		strconv.Itoa(len(blockMsg.Relay1Txs)),                               // 执行的交易数
+		strconv.Itoa(int(blockMsg.Relay2TxNum)),                             // 执行的交易数
+		strconv.Itoa(len(blockMsg.AllocatedTxs)),                            // 执行的交易数
+		strconv.FormatInt(timestamp, 10),                                    // 时间戳
+	}
+
+	// 写入CSV
+	bcm.blockLogWriter.Write(row)
+	bcm.blockLogWriter.Flush()
+	bcm.blockLogFile.Sync() // 立即刷新到磁盘
+}
+
+// recordDealTxTiming 记录 dealTxByBroker 各阶段的时间统计
+func (bcm *BrokerCommitteeMod_b2e) recordDealTxTiming(stage string, lockWait, execTime time.Duration, filtered, rejected int) {
+	bcm.dealTxTimingsLock.Lock()
+	defer bcm.dealTxTimingsLock.Unlock()
+
+	switch stage {
+	case "getBalance":
+		bcm.dealTxTimings.getBalanceLockWait = append(bcm.dealTxTimings.getBalanceLockWait, lockWait)
+		bcm.dealTxTimings.getBalanceExecTime = append(bcm.dealTxTimings.getBalanceExecTime, execTime)
+	case "b2e":
+		bcm.dealTxTimings.b2eCallExecTime = append(bcm.dealTxTimings.b2eCallExecTime, execTime)
+	case "filter":
+		bcm.dealTxTimings.filterExecTime = append(bcm.dealTxTimings.filterExecTime, execTime)
+		bcm.dealTxTimings.filteredCount = append(bcm.dealTxTimings.filteredCount, filtered)
+	case "generateBAT":
+		bcm.dealTxTimings.generateBATExecTime = append(bcm.dealTxTimings.generateBATExecTime, execTime)
+	case "handleAllocated":
+		bcm.dealTxTimings.handleAllocatedExecTime = append(bcm.dealTxTimings.handleAllocatedExecTime, execTime)
+	case "lockToken":
+		bcm.dealTxTimings.lockTokenExecTime = append(bcm.dealTxTimings.lockTokenExecTime, execTime)
+		bcm.dealTxTimings.lockTokenRejected = append(bcm.dealTxTimings.lockTokenRejected, rejected)
+	case "handleRawMag":
+		bcm.dealTxTimings.handleRawMagExecTime = append(bcm.dealTxTimings.handleRawMagExecTime, execTime)
+	}
+}
+func (bcm *BrokerCommitteeMod_b2e) SaveDealTxTimings() {
+	dirpath := params.DataWrite_path + "b2e_execution_time/"
+	err := os.MkdirAll(dirpath, os.ModePerm)
+	if err != nil {
+		log.Printf("警告: 创建目录失败: %v", err)
+		return
+	}
+
+	targetPath := dirpath + "dealTx_detailed_timings.csv"
+	file, err := os.Create(targetPath)
+	if err != nil {
+		log.Printf("警告: 创建文件失败: %v", err)
+		log.Printf("警告: 创建文件失败: %v", err)
+		return
+	}
+	defer file.Close()
+
+	w := csv.NewWriter(file)
+	defer w.Flush()
+
+	// 写入表头
+	w.Write([]string{
+		"Iteration",
+		"GetBalance_LockWait(ms)",
+		"GetBalance_Exec(ms)",
+		"B2E_Exec(ms)",
+		"Filter_Exec(ms)",
+		"Filtered_Count",
+		"GenBAT_Exec(ms)",
+		"HandleAllocated_LockWait(ms)",
+		"HandleAllocated_Exec(ms)",
+		"LockToken_LockWait(ms)",
+		"LockToken_Exec(ms)",
+		"LockToken_Rejected",
+		"HandleRawMag_Exec(ms)",
+	})
+
+	bcm.dealTxTimingsLock.Lock()
+	defer bcm.dealTxTimingsLock.Unlock()
+
+	maxLen := len(bcm.dealTxTimings.b2eCallExecTime)
+
+	for i := 0; i < maxLen; i++ {
+		row := []string{
+			strconv.Itoa(i + 1),
+			formatDuration(bcm.dealTxTimings.getBalanceLockWait, i),
+			formatDuration(bcm.dealTxTimings.getBalanceExecTime, i),
+			formatDuration(bcm.dealTxTimings.b2eCallExecTime, i),
+			formatDuration(bcm.dealTxTimings.filterExecTime, i),
+			formatInt(bcm.dealTxTimings.filteredCount, i),
+			formatDuration(bcm.dealTxTimings.generateBATExecTime, i),
+			formatDuration(bcm.dealTxTimings.handleAllocatedLockWait, i),
+			formatDuration(bcm.dealTxTimings.handleAllocatedExecTime, i),
+			formatDuration(bcm.dealTxTimings.lockTokenLockWait, i),
+			formatDuration(bcm.dealTxTimings.lockTokenExecTime, i),
+			formatInt(bcm.dealTxTimings.lockTokenRejected, i),
+			formatDuration(bcm.dealTxTimings.handleRawMagExecTime, i),
+		}
+		w.Write(row)
+	}
+
+	fmt.Printf("[DealTxTimings] 详细计时数据已保存到: %s\n", targetPath)
+}
+
+// 辅助函数: 格式化 time.Duration 为毫秒字符串
+func formatDuration(slice []time.Duration, index int) string {
+	if index >= len(slice) {
+		return "0.000"
+	}
+	return strconv.FormatFloat(float64(slice[index].Microseconds())/1000.0, 'f', 3, 64)
+}
+
+// 辅助函数: 格式化 int 数组
+func formatInt(slice []int, index int) string {
+	if index >= len(slice) {
+		return "0"
+	}
+	return strconv.Itoa(slice[index])
 }
