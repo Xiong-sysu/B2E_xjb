@@ -589,7 +589,8 @@ func (bcm *BrokerCommitteeMod_b2e) dealTxByBroker(txs []*core.Transaction) (itxs
 		rSid := bcm.fetchModifiedMap(tx.Recipient)
 		sSid := bcm.fetchModifiedMap(tx.Sender)
 		if rSid != sSid && !bcm.broker.IsBroker(tx.Recipient) && !bcm.broker.IsBroker(tx.Sender) {
-			brokerBalance := params.Init_broker_Balance
+			brokerBalance := params.Init_broker_Balance //run B2E and URFA
+			// brokerBalance := new(big.Int).Div(new(big.Int).Set(params.Init_broker_Balance), big.NewInt(int64(params.ShardNum))) //run BrokerChain
 			if brokerBalance.Cmp(tx.Value) < 0 {
 				count++
 				// relay tx
@@ -679,6 +680,8 @@ func (bcm *BrokerCommitteeMod_b2e) dealTxByBroker(txs []*core.Transaction) (itxs
 
 	b2eStart := time.Now()
 	alloctedBrokerRawMegs, restBrokerRawMeg := Broker2Earn.B2E(brokerRawMegs, activeBrokerBalance)
+	// alloctedBrokerRawMegs, restBrokerRawMeg := Broker2Earn.URFA_Integer(brokerRawMegs, activeBrokerBalance)
+	// alloctedBrokerRawMegs, restBrokerRawMeg := Broker2Earn.BrokerChain(brokerRawMegs, activeBrokerBalance)
 	b2eExecTime := time.Since(b2eStart)
 
 	bcm.recordDealTxTiming("b2e", 0, b2eExecTime, 0, 0)
@@ -1487,7 +1490,7 @@ func (bcm *BrokerCommitteeMod_b2e) GetCurrentBlockHeight() uint64 {
 
 // loadBrokerAddressPool 读取所有 broker 地址到地址池
 func (bcm *BrokerCommitteeMod_b2e) loadBrokerAddressPool() {
-	filePath := `./broker/broker`
+	filePath := `./broker/broker1000`
 	readFile, err := os.Open(filePath)
 	if err != nil {
 		log.Printf("警告: 无法打开 broker 地址文件: %v", err)
@@ -1511,7 +1514,7 @@ func (bcm *BrokerCommitteeMod_b2e) loadBrokerAddressPool() {
 
 // loadBrokerEvents 读取 broker 事件控制文件
 func (bcm *BrokerCommitteeMod_b2e) loadBrokerEvents() {
-	filePath := `./broker/broker_events.csv`
+	filePath := `./broker/broker_event_join.csv`
 	file, err := os.Open(filePath)
 	if err != nil {
 		log.Printf("警告: 无法打开事件文件: %v，将不会有动态 broker 加入/退出", err)

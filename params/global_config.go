@@ -1,12 +1,12 @@
 package params
 
 var (
-	Block_Interval      = 5000  // generate new block interval
-	MaxBlockSize_global = 2000  // the block contains the maximum number of transactions
-	InjectSpeed         = 1600  // the transaction inject speed
-	TotalDataSize       = 80000 // the total number of txs
-	BatchSize           = 1600  // supervisor read a batch of txs then send them, it should be larger than inject speed
-	BrokerNum           = 450
+	Block_Interval      = 5000   // generate new block interval
+	MaxBlockSize_global = 5000   // the block contains the maximum number of transactions
+	InjectSpeed         = 1500   // the transaction inject speed
+	TotalDataSize       = 600000 // the total number of txs
+	BatchSize           = 1500   // supervisor read a batch of txs then send them, it should be larger than inject speed
+	BrokerNum           = 100
 	NodesInShard        = 4
 	ShardNum            = 16
 	IterNum_B2E         = 5
