@@ -54,7 +54,7 @@ func (p *PbftConsensusNode) writeCSVline(str []string) {
 		defer file.Close()
 
 		w := csv.NewWriter(file)
-		title := []string{"blockHeight", "txpool size", "BlockBodyLength", "txExcuted", "broker1Txs", " broker2Txs", "AllocatedTxs", "BAT_byte_Size", "block_byte_Size", "BAT_byte_ratio", "Relay1TxNum", "Relay2TxNum", "innerTxs", "relayer_1_2_txs", "HasBroker_count"}
+		title := []string{"blockHeight", "txpool size", "relay txpool size", "BlockBodyLength", "txExcuted", "broker1Txs", " broker2Txs", "AllocatedTxs", "BAT_byte_Size", "block_byte_Size", "BAT_byte_ratio", "Relay1TxNum", "Relay2TxNum", "innerTxs", "relayer_1_2_txs", "HasBroker_count"}
 		w.Write(title)
 		w.Flush()
 		w.Write(str)
@@ -100,7 +100,7 @@ func (p *PbftConsensusNode) writeCSV_txTime(rows [][]string) {
 		defer file.Close()
 
 		w := csv.NewWriter(file)
-		title := []string{"blockHeight", "tx_proposetime", "tx_committime", "tx_makespan(ms)", "is_bat", "is_broker1Tx", "is_broker2Tx", "is_hasbroker", "is_normal_itx", "is_relay1", "is_relay2"}
+		title := []string{"tx_Nonce", "blockHeight", "tx_proposetime", "tx_committime", "relay2_addPool_time", "tx_makespan(ms)", "is_bat", "is_broker1Tx", "is_broker2Tx", "is_hasbroker", "is_normal_itx", "is_relay1", "is_relay2"}
 		_ = w.Write(title)
 		_ = w.WriteAll(rows)
 		w.Flush()

@@ -22,6 +22,14 @@ func NewTxPool() *TxPool {
 	}
 }
 
+func (txpool *TxPool) GetRelayPoolSize() int {
+	var transacitonNum int
+	for _, shardPool := range txpool.RelayPool {
+		transacitonNum += len(shardPool)
+	}
+	return transacitonNum
+}
+
 // Add a transaction to the pool (consider the queue only)
 func (txpool *TxPool) AddTx2Pool(tx *Transaction) {
 	txpool.lock.Lock()
@@ -78,6 +86,7 @@ func (txpool *TxPool) AddRelayTx(tx *Transaction, shardID uint64) {
 	if !ok {
 		txpool.RelayPool[shardID] = make([]*Transaction, 0)
 	}
+	tx.Relay2_time = time.Now()
 	txpool.RelayPool[shardID] = append(txpool.RelayPool[shardID], tx)
 }
 

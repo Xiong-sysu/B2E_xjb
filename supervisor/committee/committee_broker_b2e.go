@@ -336,6 +336,7 @@ func (bcm *BrokerCommitteeMod_b2e) MsgSendingControl() {
 
 			txlist = make([]*core.Transaction, 0)
 			bcm.Ss.StopGap_Reset()
+			time.Sleep(time.Second)
 		}
 
 		if bcm.dataTxNums == bcm.dataTotalNum {
@@ -615,23 +616,6 @@ func (bcm *BrokerCommitteeMod_b2e) dealTxByBroker(txs []*core.Transaction) (itxs
 	bcm.notHandleCtxByBroker = append(bcm.notHandleCtxByBroker, count)
 	println("len_brokerRecordMegs", len(brokerRecordMegs)) // record new injecting tx nums
 
-	for shardID, txs := range relay_txs {
-		if len(txs) == 0 {
-			continue
-		}
-		relayTxs := message.InjectTxs{
-			Txs:       txs,
-			ToShardID: shardID,
-		}
-		itByte, err := json.Marshal(relayTxs)
-		if err != nil {
-			log.Printf("序列化错误: %v", err)
-			continue
-		}
-		send_msg := message.MergeMessage(message.CInject, itByte)
-		go networks.TcpDial(send_msg, bcm.IpNodeTable[shardID][0])
-	}
-
 	// // 新增：记录交易数量
 	// transactionCount := len(brokerRecordMegs)
 	// bcm.totalB2ETransactions += transactionCount
@@ -738,7 +722,32 @@ func (bcm *BrokerCommitteeMod_b2e) dealTxByBroker(txs []*core.Transaction) (itxs
 	}
 	println("len_alloctedBrokerRawMegs", len(alloctedBrokerRawMegs))
 	//bcm.brokerBalanceLock.Unlock()
+	if len(bcm.restBrokerRawMegPool) > 0 {
+		for _, restBrokerRawMeg := range bcm.restBrokerRawMegPool {
+			ssid := bcm.fetchModifiedMap(restBrokerRawMeg.Tx.Sender)
+			tx := restBrokerRawMeg.Tx
+			tx.IsRelay = true
+			relay_txs[ssid] = append(relay_txs[ssid], tx)
+		}
+		bcm.restBrokerRawMegPool = make([]*message.BrokerRawMeg, 0)
+	}
 
+	for shardID, txs := range relay_txs {
+		if len(txs) == 0 {
+			continue
+		}
+		relayTxs := message.InjectTxs{
+			Txs:       txs,
+			ToShardID: shardID,
+		}
+		itByte, err := json.Marshal(relayTxs)
+		if err != nil {
+			log.Printf("序列化错误: %v", err)
+			continue
+		}
+		send_msg := message.MergeMessage(message.CInject, itByte)
+		go networks.TcpDial(send_msg, bcm.IpNodeTable[shardID][0])
+	}
 	// ===== 阶段3: 过滤 unbonding broker =====
 	filterStart := time.Now()
 	validAllocations := make([]*message.BrokerRawMeg, 0)
@@ -1514,7 +1523,7 @@ func (bcm *BrokerCommitteeMod_b2e) loadBrokerAddressPool() {
 
 // loadBrokerEvents 读取 broker 事件控制文件
 func (bcm *BrokerCommitteeMod_b2e) loadBrokerEvents() {
-	filePath := `./broker/broker_event_join.csv`
+	filePath := `./broker/broker_event_join_null.csv`
 	file, err := os.Open(filePath)
 	if err != nil {
 		log.Printf("警告: 无法打开事件文件: %v，将不会有动态 broker 加入/退出", err)

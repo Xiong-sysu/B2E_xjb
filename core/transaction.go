@@ -26,7 +26,8 @@ type Transaction struct {
 
 	Commit_time time.Time // the time when this tx is committed in a block
 	// used in transaction relaying
-	Relayed bool
+	Relayed     bool
+	Relay2_time time.Time
 	// used in broker, if the tx is not a broker1 or broker2 tx, these values should be empty.
 	HasBroker           bool
 	SenderIsBroker      bool
